@@ -1,0 +1,6 @@
+[submodule "api"]
+	path = api
+	url = git@github.com:faiyaz7283/dashtam-api.git
+[submodule "terminal"]
+	path = terminal
+	url = git@github.com:faiyaz7283/dashtam-terminal.git
