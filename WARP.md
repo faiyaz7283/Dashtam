@@ -2,11 +2,102 @@
 
 **Purpose**: Shared standards for all Dashtam projects. Each project has its own WARP.md for project-specific rules.
 
-**Projects**:
+---
 
-- `api/` — Financial data aggregation API (FastAPI, PostgreSQL, Redis)
-- `terminal/` — Bloomberg-style TUI for Dashtam (Textual, Typer)
-- `cli/` — Future extractable CLI tool
+## Repository Structure
+
+Dashtam uses a **meta repository** with **Git submodules** for multi-project coordination while keeping each project independent.
+
+### Repositories
+
+| Repository | Description | Status |
+|------------|-------------|--------|
+| `dashtam` | Meta repository (this repo) | Active |
+| `dashtam-api` | Financial data aggregation API (FastAPI) | Active |
+| `dashtam-terminal` | Bloomberg-style TUI (Textual) | Active |
+| `dashtam-web` | Web frontend | Planned |
+| `dashtam-cli` | Standalone CLI tool | Planned |
+
+### Local Structure
+
+```
+~/dashtam/                    # Meta repo (dashtam)
+├── .git/
+├── .gitmodules               # Submodule references
+├── README.md
+├── WARP.md                   # This file (shared rules)
+├── api/                      # Submodule → dashtam-api
+│   ├── .git/
+│   └── WARP.md               # API-specific rules
+├── terminal/                 # Submodule → dashtam-terminal
+│   ├── .git/
+│   └── WARP.md               # Terminal-specific rules
+├── web/                      # Future submodule
+└── cli/                      # Future submodule
+```
+
+### New Machine Setup
+
+Clone the entire suite with one command:
+
+```bash
+git clone --recurse-submodules git@github.com:faiyaz7283/dashtam.git ~/dashtam
+```
+
+If already cloned without submodules:
+
+```bash
+cd ~/dashtam
+git submodule update --init --recursive
+```
+
+### Submodule Workflow
+
+**Daily development** — Work in submodules as normal repos:
+
+```bash
+cd ~/dashtam/api
+git checkout development
+# ... make changes ...
+git add . && git commit -m "feat: ..."
+git push origin development
+```
+
+**Switching branches** — After cloning, switch to your working branch:
+
+```bash
+cd ~/dashtam/api
+git fetch --all
+git checkout development          # Or any feature branch
+```
+
+**Updating meta repo** — After releases, update the tracked commit:
+
+```bash
+cd ~/dashtam
+git add api                       # Stage submodule update
+git commit -m "chore: update api to v1.10.0"
+git push
+```
+
+**Pulling updates on another machine:**
+
+```bash
+cd ~/dashtam
+git pull
+git submodule update --init       # Updates to tracked commits
+cd api && git checkout development # Switch to working branch
+```
+
+### When to Update Meta Repo
+
+| Approach | When | Use case |
+|----------|------|----------|
+| Per-release | After version tags | Recommended — stable references |
+| Per-milestone | After feature completion | Alternative — milestone tracking |
+| Per-commit | Every submodule push | Not recommended — too noisy |
+
+**Recommended**: Update meta repo after releases so it always points to stable, tagged versions.
 
 ---
 
