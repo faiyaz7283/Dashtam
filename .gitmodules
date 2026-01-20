@@ -4,3 +4,6 @@
 [submodule "terminal"]
 	path = terminal
 	url = git@github.com:faiyaz7283/dashtam-terminal.git
+[submodule "jobs"]
+	path = jobs
+	url = git@github.com:faiyaz7283/dashtam-jobs.git
