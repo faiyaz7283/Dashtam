@@ -1,10 +1,66 @@
 # Dashtam Suite — Global Rules and Context
 
-**Purpose**: Shared standards for all Dashtam projects. Each project has its own WARP.md for project-specific rules.
+**Purpose**: Shared standards for all Dashtam projects. Project-specific rules in each project's WARP.md.
 
 ---
 
-## Repository Structure
+## ⚠️ For AI Agents: WARP.md Structure Rules
+
+**CRITICAL**: When updating WARP.md files, you MUST preserve this structure:
+
+1. **Global WARP** (`~/dashtam/WARP.md`):
+   - Contains Rule Index table with line numbers
+   - Contains full definitions of all universal rules
+   - Each rule section has: **Index** backreference + **Applies to** tag
+   - NO project-specific content
+
+2. **Project WARPs** (api/WARP.md, terminal/WARP.md):
+   - Lists applicable Global rules (by number)
+   - References Global WARP for definitions ("See `~/dashtam/WARP.md` Rule X")
+   - Contains ONLY project-specific rules
+   - NO duplication of Global rules
+
+3. **When adding a new rule**:
+   - Add to Global WARP Rule Index table (with line number)
+   - Add rule section with backreference: `**Index**: See Rule Index (Line X)`
+   - Add applicability tag: `**Applies to**: [projects]`
+   - Update project WARPs to reference it
+
+4. **Never**:
+   - Duplicate universal rules in project WARPs
+   - Add project-specific content to Global WARP
+   - Hardcode version numbers (use "latest stable" or reference pyproject.toml)
+   - Reference external docs (~/references/* - being sunset)
+
+**This structure ensures single source of truth and prevents content drift.**
+
+---
+
+## Rule Index
+
+**Instructions**: When adding a new rule section, update this table AND add backreference in section header.
+
+| # | Rule Section | Line | API | Terminal | Jobs | CLI | Web | Notes |
+|---|--------------|------|-----|----------|------|-----|-----|-------|
+| 1 | Repository Structure | 50 | ✅ | ✅ | ✅ | ✅ | ✅ | Meta repo with submodules |
+| 2 | Development Philosophy | 160 | ✅ | ✅ | ✅ | ✅ | ✅ | Universal principles |
+| 3 | Modern Python Patterns | 180 | ✅ | ✅ | ✅ | ✅ | ✅ | Protocol, types, Result |
+| 4 | Docker Containerization | 320 | ✅ | ✅ | ✅ | ✅ | ✅ | Common patterns, commands |
+| 5 | Git Workflow | 460 | ✅ | ✅ | ✅ | ✅ | ✅ | Branches, commits, releases |
+| 6 | Code Quality Standards | 600 | ✅ | ✅ | ✅ | ✅ | ✅ | Ruff, mypy, docstrings |
+| 7 | Testing Philosophy | 700 | ✅ | ✅ | ✅ | ✅ | ✅ | Coverage, test types |
+| 8 | Environment Configuration | 800 | ✅ | ✅ | ✅ | ✅ | ✅ | .env files, setup |
+| 9 | Documentation Standards | 880 | ✅ | ✅ | ✅ | ✅ | ✅ | Markdown lint, MkDocs |
+| 10 | AI Agent Instructions | 980 | ✅ | ✅ | ✅ | ✅ | ✅ | Mandatory process, TODOs |
+| 11 | GitHub Project | 1100 | ✅ | ✅ | ✅ | ✅ | ✅ | Unified platform tracking |
+| 12 | GitHub Issues Workflow | 1240 | ✅ | ✅ | ✅ | ✅ | ✅ | Issue lifecycle, templates |
+
+**Legend**: ✅ = Fully applies, ⚠️ = Partially applies (see notes), - = Not applicable
+
+---
+
+## 1. Repository Structure
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 Dashtam uses a **meta repository** with **Git submodules** for multi-project coordination while keeping each project independent.
 
@@ -12,9 +68,10 @@ Dashtam uses a **meta repository** with **Git submodules** for multi-project coo
 
 | Repository | Description | Status |
 |------------|-------------|--------|
-| `dashtam` | Meta repository (this repo) | Active |
+| `dashtam` | Meta repository | Active |
 | `dashtam-api` | Financial data aggregation API (FastAPI) | Active |
 | `dashtam-terminal` | Bloomberg-style TUI (Textual) | Active |
+| `dashtam-jobs` | Background job service | Foundation |
 | `dashtam-web` | Web frontend | Planned |
 | `dashtam-cli` | Standalone CLI tool | Planned |
 
@@ -32,6 +89,8 @@ Dashtam uses a **meta repository** with **Git submodules** for multi-project coo
 ├── terminal/                 # Submodule → dashtam-terminal
 │   ├── .git/
 │   └── WARP.md               # Terminal-specific rules
+├── jobs/                     # Submodule → dashtam-jobs
+│   └── WARP.md               # Jobs-specific rules
 ├── web/                      # Future submodule
 └── cli/                      # Future submodule
 ```
@@ -76,7 +135,7 @@ git checkout development          # Or any feature branch
 ```bash
 cd ~/dashtam
 git add api                       # Stage submodule update
-git commit -m "chore: update api to v1.10.0"
+git commit -m "chore: update api to latest stable"
 git push
 ```
 
@@ -101,7 +160,8 @@ cd api && git checkout development # Switch to working branch
 
 ---
 
-## 1. Development Philosophy
+## 2. Development Philosophy
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **Core Principles** (apply to ALL projects):
 
@@ -111,12 +171,14 @@ cd api && git checkout development # Switch to working branch
 - **Result Types** — Explicit error handling, no silent failures
 - **Documentation-First** — Architecture decisions documented before coding
 - **Test-Driven** — High coverage, meaningful tests
+- **Latest Stable** — Always prefer latest stable versions of all technology
 
 ---
 
-## 2. Modern Python Patterns
+## 3. Modern Python Patterns
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
-**CRITICAL**: All projects use Python 3.14+ features consistently.
+**CRITICAL**: All projects use Python 3.14+ features consistently. Always prefer latest stable Python version.
 
 ### Protocol over ABC (Mandatory)
 
@@ -177,15 +239,16 @@ value = result.value  # Type narrowed to Success
 
 ---
 
-## 3. Docker Containerization
+## 4. Docker Containerization
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **CRITICAL**: ALL development happens in Docker containers. No local Python environments.
 
 ### Common Patterns
 
 ```yaml
-# Multi-stage Dockerfile with UV
-FROM ghcr.io/astral-sh/uv:0.8.22-python3.14-trixie-slim AS base
+# Multi-stage Dockerfile with UV (latest stable)
+FROM ghcr.io/astral-sh/uv:latest-python3.14-trixie-slim AS base
 WORKDIR /app
 
 # Anonymous volume for .venv (preserves across rebuilds)
@@ -220,7 +283,8 @@ make verify        # Full verification (format, lint, type-check, test)
 
 ---
 
-## 4. Git Workflow
+## 5. Git Workflow
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Branch Structure
 
@@ -238,7 +302,7 @@ feat(auth): add JWT authentication (#42)
 fix(api): handle token expiration correctly (#43)
 docs(readme): add installation instructions
 test(integration): add user registration tests (#44)
-chore(deps): update httpx to 0.28.1
+chore(deps): update httpx to latest stable
 ```
 
 **Co-author** (required for AI-assisted commits):
@@ -247,7 +311,7 @@ chore(deps): update httpx to 0.28.1
 Co-Authored-By: Warp <agent@warp.dev>
 ```
 
-**Issue References**: Include `(#N)` for feature/fix commits. See Section 10 for full GitHub Issues workflow.
+**Issue References**: Include `(#N)` for feature/fix commits. See Rule 11 for full GitHub Issues workflow.
 
 ### Branch Protection
 
@@ -281,9 +345,12 @@ See project-specific WARP.md for detailed release checklists.
 
 ---
 
-## 5. Code Quality Standards
+## 6. Code Quality Standards
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Ruff (Linting + Formatting)
+
+Use latest stable Ruff configuration:
 
 ```toml
 [tool.ruff]
@@ -322,7 +389,8 @@ def fetch_accounts(user_id: UUID) -> Result[list[Account], FetchError]:
 
 ---
 
-## 6. Testing Philosophy
+## 7. Testing Philosophy
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **Coverage Targets**:
 
@@ -346,7 +414,8 @@ tests/
 
 ---
 
-## 7. Environment Configuration
+## 8. Environment Configuration
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### .env Files
 
@@ -369,7 +438,39 @@ _ensure-env-dev:
 
 ---
 
-## 8. AI Agent Instructions
+## 9. Documentation Standards
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
+
+### Markdown Linting (Mandatory)
+
+```bash
+# Lint markdown file
+make lint-md FILE="docs/architecture/new-doc.md"
+
+# Lint markdown directory
+make lint-md DIR="docs/"
+
+# Must return zero violations before commit
+```
+
+**Common Violations**:
+
+- **MD022**: Add blank line before AND after headings
+- **MD032**: Add blank line before AND after lists
+- **MD031**: Add blank line before AND after code blocks
+- **MD040**: Add language identifier to code blocks
+
+### MkDocs Documentation
+
+```bash
+make docs-serve   # Live preview (http://localhost:8000)
+make docs-build   # Must pass with ZERO warnings
+```
+
+---
+
+## 10. AI Agent Instructions
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Mandatory Process
 
@@ -402,16 +503,14 @@ Each project's WARP.md contains:
 
 ---
 
-## 9. External References
+## 11. GitHub Project (Unified Platform Tracking)
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
-- `~/references/Dashtam/` — Dashtam-specific planning documents
-- `~/references/CLI/` — CLI/Terminal design documents
+**Project URL**: https://github.com/users/faiyaz7283/projects/4
 
----
+**Project Name**: Dashtam Platform Development
 
-## 10. GitHub Issues Workflow
-
-**CRITICAL**: All feature development is tracked via GitHub Issues. The local feature roadmap file is deprecated.
+**Purpose**: Unified tracking for all Dashtam repositories (api, terminal, jobs, cli, web).
 
 ### Issue Lifecycle
 
@@ -432,7 +531,7 @@ OPEN → Assigned → In Progress → PR Linked → CLOSED
 ### Labels
 
 | Category | Labels | Purpose |
-|----------|--------|--------|
+|----------|--------|---------|
 | **Type** | `enhancement`, `bug`, `documentation`, `refactor`, `chore` | What kind of work |
 | **Priority** | `priority:high`, `priority:medium`, `priority:lower` | Urgency level |
 | **Feature** | `sse`, `auth`, `providers`, `sync`, `ai`, `terminal` | Feature area |
@@ -443,7 +542,7 @@ OPEN → Assigned → In Progress → PR Linked → CLOSED
 
 Milestones group related issues toward a specific release or outcome:
 
-- **Version releases**: `v1.10.0`, `v2.0.0`
+- **Version releases**: Check project's latest release tag
 - **Feature sets**: `SSE Implementation`, `AI Integration`
 
 Milestones show visual progress as issues close.
@@ -451,7 +550,7 @@ Milestones show visual progress as issues close.
 ### Linking Conventions
 
 | Where | Format | Example |
-|-------|--------|--------|
+|-------|--------|---------|
 | **Branch** | `feature/issue-{N}-{slug}` | `feature/issue-156-sse-data-sync` |
 | **Commit** | `type(scope): description (#N)` | `feat(sse): add data sync mappings (#156)` |
 | **PR Title** | Same as commit | `feat(sse): Data Sync Progress (Closes #156)` |
@@ -478,4 +577,119 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 
 ---
 
-**Last Updated**: 2026-01-18
+## 12. GitHub Issues Workflow
+**Index**: See Rule Index (Line 15) | **Applies to**: All projects
+
+**CRITICAL**: All feature development is tracked via GitHub Issues.
+
+### Project Type
+
+**Organization-Level Project** (user account: faiyaz7283)
+
+- Tracks issues from **multiple repositories** simultaneously
+- Single board for entire Dashtam platform
+- Custom fields apply across all repos
+
+### Custom Fields
+
+**1. Service** (Single Select)
+- Options: `API`, `Terminal`, `Jobs`, `CLI`, `Web`, `Platform`
+- Purpose: Identify which service the issue belongs to
+- Auto-assign: Based on repository (api → API, terminal → Terminal, etc.)
+
+**2. Maturity** (Single Select)
+- Options: `Foundation`, `Active`, `Maintenance`, `Planning`
+- Purpose: Track project lifecycle stage
+
+**3. Contributor** (Single Select)
+- Options: `Human`, `AI-Agent`, `Warp Agent`, `Collaborative`
+- Purpose: Identify who worked on the issue
+
+**4. Priority** (Single Select)
+- Options: `P0 - Critical`, `P1 - High`, `P2 - Medium`, `P3 - Low`
+- Purpose: Prioritize work
+
+**5. Quarter** (Single Select)
+- Options: Current and upcoming quarters, `Backlog`
+- Purpose: Roadmap planning
+
+### Status Workflow
+
+**Status Options**:
+
+| Status | Description | Use |
+|--------|-------------|-----|
+| **Backlog** | Not yet prioritized or scheduled | Ideas, future enhancements, awaiting triage |
+| **Todo** | Ready to be worked on | Approved and prioritized, ready for assignment |
+| **In Progress** | Currently being worked on | Actively being developed |
+| **Review** | Under review or testing | PR submitted, awaiting code review, QA testing |
+| **Done** | Completed and merged | Issue closed, changes deployed or merged |
+
+**Typical Flow**:
+```
+Backlog → Todo → In Progress → Review → Done
+(someday)  (ready)  (doing)     (checking)  (shipped)
+```
+
+### Issue Management in Project
+
+**When creating new issues**:
+1. Issue auto-appears in project when created in tracked repos
+2. Set **Service** field based on repository
+3. Set **Priority** based on urgency (default: P2 - Medium)
+4. Set **Quarter** (current quarter for active work, Backlog for future)
+5. Leave Status as **Backlog** until ready to prioritize
+
+**When starting work**:
+1. Move issue to **Todo** (if not already)
+2. Assign yourself
+3. Create feature branch: `feature/issue-N-description`
+4. Move to **In Progress**
+5. Reference in commits: `type(scope): description (#N)`
+
+**When submitting PR**:
+1. Link PR to issue (use `Closes #N` in PR description)
+2. Move issue to **Review**
+3. Wait for CI checks and code review
+
+**When PR merged**:
+1. Issue auto-moves to **Done** (if `Closes #N` used)
+2. Close milestone if all issues complete
+
+### Recommended Views
+
+**Board View** (default):
+- Group by: Status
+- Sort by: Priority
+- Filter: Show all states
+
+**Table View**:
+- Columns: Title, Service, Maturity, Priority, Status, Assignees, Labels
+- Sort by: Updated (newest first)
+
+**Roadmap View**:
+- Group by: Quarter
+- Timeline with milestones
+
+**Service-Specific Views**:
+- Create filtered views for each service (API, Terminal, Jobs)
+
+### Project Management Commands
+
+```bash
+# View project in browser
+gh project view 4 --owner faiyaz7283 --web
+
+# List items
+gh project item-list 4 --owner faiyaz7283 --limit 50
+
+# Add item to project
+gh project item-add 4 --owner faiyaz7283 --url <issue-url>
+
+# List fields
+gh project field-list 4 --owner faiyaz7283
+```
+
+---
+
+**Last Updated**: 2026-01-21
