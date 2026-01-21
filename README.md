@@ -1,13 +1,13 @@
 # Dashtam
 
-**Financial Data Aggregation Platform**
+> Financial Data Aggregation Platform
 
 A comprehensive suite for aggregating and managing financial data from multiple brokerage providers.
 
 ## Projects
 
 | Project | Description | Status |
-|---------|-------------|--------|
+| --------- | ------------- | -------- |
 | [dashtam-api](https://github.com/faiyaz7283/dashtam-api) | REST API backend (FastAPI) | Active |
 | [dashtam-terminal](https://github.com/faiyaz7283/dashtam-terminal) | TUI client (Textual) | Active |
 | dashtam-web | Web frontend | Planned |
@@ -30,7 +30,7 @@ git submodule update --init --recursive
 
 ## Structure
 
-```
+```text
 dashtam/
 ├── README.md           # This file
 ├── WARP.md             # Shared development guidelines
@@ -43,6 +43,7 @@ dashtam/
 ## Development
 
 Each project is an independent repository with its own:
+
 - Version control history
 - CI/CD pipelines
 - Release cycles
