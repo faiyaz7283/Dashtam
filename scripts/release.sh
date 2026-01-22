@@ -935,32 +935,20 @@ create_pr() {
     local repo_name
     repo_name=$(basename "$PROJECT_PATH")
     
+    # Get CHANGELOG entry for PR body (need this for both dry-run and real run)
+    local changelog_entry=""
     if [[ "$ARG_DRY_RUN" == "1" ]]; then
-        echo ""
-        log_info "[DRY RUN] Commands:"
-        echo "  gh pr create \\"
-        echo "    --repo faiyaz7283/dashtam-$repo_name \\"
-        echo "    --base development \\"
-        echo "    --head $RELEASE_BRANCH \\"
-        echo "    --title \"chore(release): v$NEW_VERSION\" \\"
-        echo "    --body \"...\" \\"
-        echo "    --label $RELEASE_LABEL"
-        echo ""
-        return 0
+        # In dry-run, CHANGELOG.md doesn't exist yet, so reconstruct from generation
+        # We already displayed the CHANGELOG content, so use placeholder or reconstruct
+        changelog_entry="(See CHANGELOG entry generated above)"
+    else
+        # In real run, extract from CHANGELOG.md file
+        changelog_entry=$(awk '/^## \['"$NEW_VERSION"'\]/,/^## \[/{if(/^## \[/ && !/^## \['"$NEW_VERSION"'\]/) exit; print}' CHANGELOG.md)
     fi
     
-    # Get CHANGELOG entry for PR body
-    local changelog_entry
-    changelog_entry=$(awk '/^## \['"$NEW_VERSION"'\]/,/^## \[/{if(/^## \[/ && !/^## \['"$NEW_VERSION"'\]/) exit; print}' CHANGELOG.md)
-    
-    # Create PR
-    local pr_url
-    pr_url=$(gh pr create \
-        --repo "faiyaz7283/dashtam-$repo_name" \
-        --base development \
-        --head "$RELEASE_BRANCH" \
-        --title "chore(release): v$NEW_VERSION" \
-        --body "## Release v$NEW_VERSION
+    # Build PR body
+    local pr_body
+    pr_body="## Release v$NEW_VERSION
 
 Automated release PR created by release automation script.
 
@@ -975,7 +963,39 @@ $changelog_entry
 3. ⏳ GitHub Actions will create PR to main
 4. ⏳ After main merge, GitHub Actions will tag and create GitHub Release
 
-**Note**: This PR is labeled with \`$RELEASE_LABEL\` for automation.")
+**Note**: This PR is labeled with \`$RELEASE_LABEL\` for automation."
+    
+    if [[ "$ARG_DRY_RUN" == "1" ]]; then
+        echo ""
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo -e "${COLOR_BOLD}PR Title:${COLOR_RESET}"
+        echo "  chore(release): v$NEW_VERSION"
+        echo ""
+        echo -e "${COLOR_BOLD}PR Body:${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo "$pr_body"
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo ""
+        log_info "[DRY RUN] Command:"
+        echo "  gh pr create \\"
+        echo "    --repo faiyaz7283/dashtam-$repo_name \\"
+        echo "    --base development \\"
+        echo "    --head $RELEASE_BRANCH \\"
+        echo "    --title \"chore(release): v$NEW_VERSION\" \\"
+        echo "    --body <see-above> \\"
+        echo "    --label $RELEASE_LABEL"
+        echo ""
+        return 0
+    fi
+    
+    # Create PR
+    local pr_url
+    pr_url=$(gh pr create \
+        --repo "faiyaz7283/dashtam-$repo_name" \
+        --base development \
+        --head "$RELEASE_BRANCH" \
+        --title "chore(release): v$NEW_VERSION" \
+        --body "$pr_body")
     
     # Extract PR number from URL
     PR_NUMBER=$(basename "$pr_url")
