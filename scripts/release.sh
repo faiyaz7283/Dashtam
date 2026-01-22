@@ -260,6 +260,7 @@ detect_project() {
         api|terminal|jobs)
             PROJECT_NAME="$project"
             PROJECT_PATH="$DASHTAM_ROOT/$project"
+            export PROJECT_PATH  # Export for cleanup_on_error in common.sh
             ;;
         *)
             log_error "Invalid project: $project\nValid projects: api, terminal, jobs"
@@ -759,7 +760,6 @@ generate_changelog() {
     # Generate entry header
     local entry_date
     entry_date=$(date '+%Y-%m-%d')
-    local entry_header="\n## [${NEW_VERSION}] - ${entry_date}\n"
     
     # Fetch issues from milestone (if specified) or recent closed issues
     local issues_json
@@ -786,24 +786,45 @@ generate_changelog() {
     local fixes=$(echo "$issues_json" | jq -r 'select(.type == "bug") | "- \(.title) (#\(.number))"' | sort)
     local docs=$(echo "$issues_json" | jq -r 'select(.type == "documentation") | "- \(.title) (#\(.number))"' | sort)
     
-    # Build CHANGELOG entry with proper blank lines (MD022, MD032 compliance)
-    local entry="$entry_header"
+    # Build CHANGELOG entry with EXACT blank line control for MD012/MD022/MD032 compliance
+    # 
+    # Target format (exactly 1 blank line between sections):
+    #   ## [X.Y.Z] - YYYY-MM-DD
+    #   <blank>
+    #   ### Features
+    #   <blank>
+    #   - item 1
+    #   - item 2
+    #   <blank>
+    #   ### Bug Fixes
+    #   ...
+    #
+    local entry=""
+    
+    # Version header
+    entry="## [${NEW_VERSION}] - ${entry_date}"
     
     if [[ -n "$features" ]]; then
-        entry+="\n### Features\n\n$features\n"
+        # blank + ### + blank + items
+        entry+=$'\n\n### Features\n\n'
+        entry+="$features"
     fi
     
     if [[ -n "$fixes" ]]; then
-        entry+="\n### Bug Fixes\n\n$fixes\n"
+        # blank + ### + blank + items
+        entry+=$'\n\n### Bug Fixes\n\n'
+        entry+="$fixes"
     fi
     
     if [[ -n "$docs" ]]; then
-        entry+="\n### Documentation\n\n$docs\n"
+        # blank + ### + blank + items
+        entry+=$'\n\n### Documentation\n\n'
+        entry+="$docs"
     fi
     
     # If no issues found, add placeholder
     if [[ -z "$features" && -z "$fixes" && -z "$docs" ]]; then
-        entry+="\n- Version bump\n"
+        entry+=$'\n\n- Version bump'
     fi
     
     # Display in verbose mode or dry-run
@@ -812,7 +833,7 @@ generate_changelog() {
         echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
         echo -e "${COLOR_BOLD}Generated CHANGELOG Entry:${COLOR_RESET}"
         echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
-        echo -e "$entry"
+        printf '%s' "$entry"
         echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
         echo ""
     fi
@@ -825,9 +846,22 @@ generate_changelog() {
     
     # Real run: Insert entry after header (line 4)
     # Use temp file approach to avoid sed multiline issues
+    # printf preserves literal newlines in $entry
+    #
+    # Target structure:
+    #   Line 1: # Changelog
+    #   Line 2: <blank>
+    #   Line 3: All notable changes...
+    #   Line 4: <blank> (from echo "")
+    #   Line 5+: $entry (## [X.Y.Z] ...)
+    #   After entry: <blank> (single)
+    #   Rest: existing content starting with ## [prev]
+    #
     {
         head -n 3 "$changelog"
-        echo -e "$entry"
+        echo ""  # Single blank line after header
+        printf '%s\n' "$entry"  # Entry content with trailing newline
+        # tail -n +4 includes the existing blank line before ## [prev]
         tail -n +4 "$changelog"
     } > "$changelog.tmp" && mv "$changelog.tmp" "$changelog"
     
@@ -1008,6 +1042,18 @@ $changelog_entry
     log_success "PR created: $pr_url"
     log_success "PR number: #$PR_NUMBER"
     log_success "Label added: $RELEASE_LABEL"
+    
+    # Enable auto-merge (will merge when CI passes)
+    log_info "Enabling auto-merge..."
+    if gh pr merge "$PR_NUMBER" \
+        --repo "faiyaz7283/dashtam-$repo_name" \
+        --auto \
+        --merge; then
+        log_success "Auto-merge enabled for PR #$PR_NUMBER"
+    else
+        log_warning "Failed to enable auto-merge (may require manual merge)"
+        log_info "  This can happen if auto-merge is not enabled in repo settings"
+    fi
 }
 
 # =============================================================================

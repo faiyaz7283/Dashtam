@@ -539,6 +539,11 @@ cleanup_on_error() {
                 # Revert ONLY the files modified by the script
                 log_info "Reverting script-modified files..."
                 
+                # Change to project directory (required for git operations)
+                if [[ -n "${PROJECT_PATH:-}" ]] && [[ -d "$PROJECT_PATH" ]]; then
+                    cd "$PROJECT_PATH" || true
+                fi
+                
                 # Release script only modifies these 3 files
                 local files_to_revert=("pyproject.toml" "uv.lock" "CHANGELOG.md")
                 local reverted_count=0
