@@ -41,7 +41,7 @@
 **Instructions**: When adding a new rule section, update this table AND add backreference in section header.
 
 | # | Rule Section | Line | API | Terminal | Jobs | CLI | Web | Notes |
-|---|--------------|------|-----|----------|------|-----|-----|-------|
+| --- | -------------- | ------ | ----- | ---------- | ------ | ----- | ----- | ------- |
 | 1 | Repository Structure | 50 | ✅ | ✅ | ✅ | ✅ | ✅ | Meta repo with submodules |
 | 2 | Development Philosophy | 160 | ✅ | ✅ | ✅ | ✅ | ✅ | Universal principles |
 | 3 | Modern Python Patterns | 180 | ✅ | ✅ | ✅ | ✅ | ✅ | Protocol, types, Result |
@@ -60,6 +60,7 @@
 ---
 
 ## 1. Repository Structure
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 Dashtam uses a **meta repository** with **Git submodules** for multi-project coordination while keeping each project independent.
@@ -67,7 +68,7 @@ Dashtam uses a **meta repository** with **Git submodules** for multi-project coo
 ### Repositories
 
 | Repository | Description | Status |
-|------------|-------------|--------|
+| ------------ | ------------- | -------- |
 | `dashtam` | Meta repository | Active |
 | `dashtam-api` | Financial data aggregation API (FastAPI) | Active |
 | `dashtam-terminal` | Bloomberg-style TUI (Textual) | Active |
@@ -151,7 +152,7 @@ cd api && git checkout development # Switch to working branch
 ### When to Update Meta Repo
 
 | Approach | When | Use case |
-|----------|------|----------|
+| ---------- | ------ | ---------- |
 | Per-release | After version tags | Recommended — stable references |
 | Per-milestone | After feature completion | Alternative — milestone tracking |
 | Per-commit | Every submodule push | Not recommended — too noisy |
@@ -161,6 +162,7 @@ cd api && git checkout development # Switch to working branch
 ---
 
 ## 2. Development Philosophy
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **Core Principles** (apply to ALL projects):
@@ -176,6 +178,7 @@ cd api && git checkout development # Switch to working branch
 ---
 
 ## 3. Modern Python Patterns
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **CRITICAL**: All projects use Python 3.14+ features consistently. Always prefer latest stable Python version.
@@ -240,6 +243,7 @@ value = result.value  # Type narrowed to Success
 ---
 
 ## 4. Docker Containerization
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **CRITICAL**: ALL development happens in Docker containers. No local Python environments.
@@ -284,6 +288,7 @@ make verify        # Full verification (format, lint, type-check, test)
 ---
 
 ## 5. Git Workflow
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Branch Structure
@@ -339,13 +344,14 @@ git merge origin/main --no-edit
 git push origin development
 ```
 
-6. Close the milestone on GitHub (if all issues complete)
+1. Close the milestone on GitHub (if all issues complete)
 
 See project-specific WARP.md for detailed release checklists.
 
 ---
 
 ## 6. Code Quality Standards
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Ruff (Linting + Formatting)
@@ -390,6 +396,7 @@ def fetch_accounts(user_id: UUID) -> Result[list[Account], FetchError]:
 ---
 
 ## 7. Testing Philosophy
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **Coverage Targets**:
@@ -415,6 +422,7 @@ tests/
 ---
 
 ## 8. Environment Configuration
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### .env Files
@@ -431,14 +439,15 @@ Makefiles automatically create `.env.dev` from `.env.example` if missing:
 
 ```makefile
 _ensure-env-dev:
-	@if [ ! -f env/.env.dev ]; then \
-		cp env/.env.example env/.env.dev; \
-	fi
+ @if [ ! -f env/.env.dev ]; then \
+  cp env/.env.example env/.env.dev; \
+ fi
 ```
 
 ---
 
 ## 9. Documentation Standards
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Markdown Linting (Mandatory)
@@ -470,6 +479,7 @@ make docs-build   # Must pass with ZERO warnings
 ---
 
 ## 10. AI Agent Instructions
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 ### Mandatory Process
@@ -504,9 +514,10 @@ Each project's WARP.md contains:
 ---
 
 ## 11. GitHub Project (Unified Platform Tracking)
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
-**Project URL**: https://github.com/users/faiyaz7283/projects/4
+**Project URL**: <https://github.com/users/faiyaz7283/projects/4>
 
 **Project Name**: Dashtam Platform Development
 
@@ -531,7 +542,7 @@ OPEN → Assigned → In Progress → PR Linked → CLOSED
 ### Labels
 
 | Category | Labels | Purpose |
-|----------|--------|---------|
+| ---------- | -------- | --------- |
 | **Type** | `enhancement`, `bug`, `documentation`, `refactor`, `chore` | What kind of work |
 | **Priority** | `priority:high`, `priority:medium`, `priority:lower` | Urgency level |
 | **Feature** | `sse`, `auth`, `providers`, `sync`, `ai`, `terminal` | Feature area |
@@ -550,7 +561,7 @@ Milestones show visual progress as issues close.
 ### Linking Conventions
 
 | Where | Format | Example |
-|-------|--------|---------|
+| ------- | -------- | --------- |
 | **Branch** | `feature/issue-{N}-{slug}` | `feature/issue-156-sse-data-sync` |
 | **Commit** | `type(scope): description (#N)` | `feat(sse): add data sync mappings (#156)` |
 | **PR Title** | Same as commit | `feat(sse): Data Sync Progress (Closes #156)` |
@@ -578,6 +589,7 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 ---
 
 ## 12. GitHub Issues Workflow
+
 **Index**: See Rule Index (Line 15) | **Applies to**: All projects
 
 **CRITICAL**: All feature development is tracked via GitHub Issues.
@@ -593,23 +605,28 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 ### Custom Fields
 
 **1. Service** (Single Select)
+
 - Options: `API`, `Terminal`, `Jobs`, `CLI`, `Web`, `Platform`
 - Purpose: Identify which service the issue belongs to
 - Auto-assign: Based on repository (api → API, terminal → Terminal, etc.)
 
 **2. Maturity** (Single Select)
+
 - Options: `Foundation`, `Active`, `Maintenance`, `Planning`
 - Purpose: Track project lifecycle stage
 
 **3. Contributor** (Single Select)
+
 - Options: `Human`, `AI-Agent`, `Warp Agent`, `Collaborative`
 - Purpose: Identify who worked on the issue
 
 **4. Priority** (Single Select)
+
 - Options: `P0 - Critical`, `P1 - High`, `P2 - Medium`, `P3 - Low`
 - Purpose: Prioritize work
 
 **5. Quarter** (Single Select)
+
 - Options: Current and upcoming quarters, `Backlog`
 - Purpose: Roadmap planning
 
@@ -618,7 +635,7 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 **Status Options**:
 
 | Status | Description | Use |
-|--------|-------------|-----|
+| -------- | ------------- | ----- |
 | **Backlog** | Not yet prioritized or scheduled | Ideas, future enhancements, awaiting triage |
 | **Todo** | Ready to be worked on | Approved and prioritized, ready for assignment |
 | **In Progress** | Currently being worked on | Actively being developed |
@@ -626,6 +643,7 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 | **Done** | Completed and merged | Issue closed, changes deployed or merged |
 
 **Typical Flow**:
+
 ```
 Backlog → Todo → In Progress → Review → Done
 (someday)  (ready)  (doing)     (checking)  (shipped)
@@ -634,6 +652,7 @@ Backlog → Todo → In Progress → Review → Done
 ### Issue Management in Project
 
 **When creating new issues**:
+
 1. Issue auto-appears in project when created in tracked repos
 2. Set **Service** field based on repository
 3. Set **Priority** based on urgency (default: P2 - Medium)
@@ -641,6 +660,7 @@ Backlog → Todo → In Progress → Review → Done
 5. Leave Status as **Backlog** until ready to prioritize
 
 **When starting work**:
+
 1. Move issue to **Todo** (if not already)
 2. Assign yourself
 3. Create feature branch: `feature/issue-N-description`
@@ -648,30 +668,36 @@ Backlog → Todo → In Progress → Review → Done
 5. Reference in commits: `type(scope): description (#N)`
 
 **When submitting PR**:
+
 1. Link PR to issue (use `Closes #N` in PR description)
 2. Move issue to **Review**
 3. Wait for CI checks and code review
 
 **When PR merged**:
+
 1. Issue auto-moves to **Done** (if `Closes #N` used)
 2. Close milestone if all issues complete
 
 ### Recommended Views
 
 **Board View** (default):
+
 - Group by: Status
 - Sort by: Priority
 - Filter: Show all states
 
 **Table View**:
+
 - Columns: Title, Service, Maturity, Priority, Status, Assignees, Labels
 - Sort by: Updated (newest first)
 
 **Roadmap View**:
+
 - Group by: Quarter
 - Timeline with milestones
 
 **Service-Specific Views**:
+
 - Create filtered views for each service (API, Terminal, Jobs)
 
 ### Project Management Commands

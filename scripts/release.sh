@@ -786,19 +786,19 @@ generate_changelog() {
     local fixes=$(echo "$issues_json" | jq -r 'select(.type == "bug") | "- \(.title) (#\(.number))"' | sort)
     local docs=$(echo "$issues_json" | jq -r 'select(.type == "documentation") | "- \(.title) (#\(.number))"' | sort)
     
-    # Build CHANGELOG entry
+    # Build CHANGELOG entry with proper blank lines (MD022, MD032 compliance)
     local entry="$entry_header"
     
     if [[ -n "$features" ]]; then
-        entry+="\n### Features\n$features\n"
+        entry+="\n### Features\n\n$features\n"
     fi
     
     if [[ -n "$fixes" ]]; then
-        entry+="\n### Bug Fixes\n$fixes\n"
+        entry+="\n### Bug Fixes\n\n$fixes\n"
     fi
     
     if [[ -n "$docs" ]]; then
-        entry+="\n### Documentation\n$docs\n"
+        entry+="\n### Documentation\n\n$docs\n"
     fi
     
     # If no issues found, add placeholder
@@ -831,15 +831,15 @@ generate_changelog() {
         tail -n +4 "$changelog"
     } > "$changelog.tmp" && mv "$changelog.tmp" "$changelog"
     
-    # Validate markdown linting
+    # Validate markdown linting (BLOCK on violations)
     log_info "Validating CHANGELOG.md markdown..."
     if ! docker run --rm -v "$PROJECT_PATH:/workspace:ro" -w /workspace \
-        node:24-alpine npx markdownlint-cli2 "CHANGELOG.md" > /dev/null 2>&1; then
-        log_warning "CHANGELOG.md has markdown linting violations"
-        log_info "Run: make lint-md FILE=CHANGELOG.md to see violations"
+        node:24-alpine npx markdownlint-cli2 "CHANGELOG.md" 2>&1 | tee /tmp/changelog-lint.log; then
+        echo ""
+        log_error "CHANGELOG.md has markdown linting violations\n\nViolations:\n$(cat /tmp/changelog-lint.log)\n\nTo fix:\n  make lint-md FILE=CHANGELOG.md\n\nThe script will revert all changes automatically."
     fi
     
-    log_success "CHANGELOG entry generated"
+    log_success "CHANGELOG entry generated and validated"
 }
 
 #
