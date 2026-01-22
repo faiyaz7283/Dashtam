@@ -587,11 +587,96 @@ make release VERSION=0.2.1
 
 ---
 
+## Rollback Process
+
+### Automatic Rollback Script
+
+The `release-rollback.sh` script handles rollback based on release phase.
+
+**Usage:**
+
+```bash
+cd ~/dashtam
+./scripts/release-rollback.sh --project api --version 1.9.4
+
+# Force specific phase
+./scripts/release-rollback.sh --project api --version 1.9.4 --phase 2
+
+# Skip confirmations
+./scripts/release-rollback.sh --project api --version 1.9.4 --yes
+```
+
+### Rollback by Phase
+
+#### Phase 1: Release Branch (Easiest)
+
+- Release branch exists but not merged to development
+- **Actions**: Deletes local and remote release branch
+- **Impact**: None (no commits merged)
+
+#### Phase 2: PR Created (Easy)
+
+- PR to development created but not merged
+- **Actions**: Closes PR, deletes release branch
+- **Impact**: None (no commits merged)
+
+#### Phase 3: Merged to Development (Moderate)
+
+- Merged to development, but not to main
+- **Actions**: Creates revert commit on development, closes main PR if
+  exists
+- **Impact**: Revert commit in git history
+
+#### Phase 4: Tagged and Released (Manual)
+
+- Release tagged and published on main
+- **Actions**: Script provides manual instructions (forward fix recommended)
+- **Impact**: Requires manual intervention
+
+**IMPORTANT**: Phase 4 does NOT delete tags/releases. This breaks history
+for users who pulled the tag. Create a fix release instead.
+
+### Manual Rollback Commands
+
+**Phase 1 (Manual):**
+
+```bash
+cd ~/dashtam/api
+git branch -D release/v1.9.4
+git push origin --delete release/v1.9.4
+```
+
+**Phase 2 (Manual):**
+
+```bash
+gh pr close <PR_NUMBER> --comment "Cancelling release" --delete-branch
+```
+
+**Phase 3 (Manual):**
+
+```bash
+cd ~/dashtam/api
+git checkout development
+git pull origin development
+git revert <RELEASE_COMMIT> --no-edit
+git push origin development
+```
+
+**Phase 4 (Manual - Forward Fix):**
+
+```bash
+# Create fix release
+make release VERSION=1.9.5
+```
+
+---
+
 ## FAQ
 
 **Q: Can I cancel a release after starting?**
 
-A: Yes, before merging the Phase 1 PR, just close it and delete the release branch.
+A: Yes. Use `release-rollback.sh` or manually close the PR and delete
+the release branch.
 
 **Q: What if Phase 2 or Phase 3 fails?**
 
@@ -612,13 +697,15 @@ A: No, CHANGELOG is always generated. You can edit it in the PR.
 
 **Q: How do I rollback a release?**
 
-A: Delete the tag and GitHub Release, then revert commits on main/development.
+A: Use `./scripts/release-rollback.sh --project api --version X.Y.Z`.
+For tagged releases (Phase 4), create a forward fix instead.
 
 ---
 
 ## Related Documentation
 
 - `~/dashtam/scripts/release.sh` - Release script source
+- `~/dashtam/scripts/release-rollback.sh` - Rollback script
 - `~/dashtam/WARP.md` - Git workflow and release process
 - `.github/workflows/release-phase2.yml` - Phase 2 automation
 - `.github/workflows/release-phase3.yml` - Phase 3 automation

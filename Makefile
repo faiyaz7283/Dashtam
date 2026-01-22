@@ -1,10 +1,11 @@
-.PHONY: help create-issue release lint-md lint-md-check lint-md-fix md-check
+.PHONY: help create-issue release rollback lint-md lint-md-check lint-md-fix md-check
 
 help:
 	@echo "Dashtam Meta Repo - Available Commands"
 	@echo ""
 	@echo "  make create-issue     Create GitHub issue and add to project"
 	@echo "  make release          Prepare release (version bump, CHANGELOG, PR)"
+	@echo "  make rollback         Rollback a release (by phase)"
 	@echo ""
 	@echo "Usage examples:"
 	@echo "  make create-issue TITLE='Bug fix' BODY='Description' LABELS='bug'"
@@ -18,11 +19,17 @@ help:
 	@echo "  make release VERSION=1.2.0 VERBOSE=1      # Show detailed output"
 	@echo "  make release VERSION=1.2.0 YES=1          # Skip confirmations"
 	@echo ""
+	@echo "  make rollback VERSION=1.9.3               # Auto-detect phase"
+	@echo "  make rollback PROJECT=api VERSION=1.9.3   # Explicit project"
+	@echo "  make rollback VERSION=1.9.3 PHASE=2       # Force specific phase"
+	@echo "  make rollback VERSION=1.9.3 DRY_RUN=1     # Preview only"
+	@echo ""
 	@echo "  make lint-md FILE=docs/guides/file.md  # Lint markdown file"
 	@echo ""
 	@echo "For direct script usage with more options:"
 	@echo "  ./scripts/create-issue.sh --title 'Title' --body 'Body' --service Platform --parent 1"
 	@echo "  ./scripts/release.sh --version 1.2.0 --milestone 'v1.2.0' --dry-run"
+	@echo "  ./scripts/release-rollback.sh --project api --version 1.9.3 --dry-run --verbose"
 
 # Create issue with automatic project addition
 # Usage: make create-issue TITLE="..." BODY="..." [SERVICE=...] [PRIORITY=...] [QUARTER=...] [LABELS=...] [PARENT=...]
@@ -58,6 +65,23 @@ release:
 	else \
 		eval "./scripts/release.sh $$ARGS"; \
 	fi
+
+# Rollback a release (by phase)
+# Usage: make rollback [PROJECT=api] VERSION=1.9.3 [PHASE=2] [DRY_RUN=1] [VERBOSE=1] [YES=1]
+rollback:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required"; \
+		echo "Usage: make rollback VERSION=1.9.3 [PROJECT=api] [PHASE=2] [DRY_RUN=1]"; \
+		exit 1; \
+	fi
+	@ARGS=""; \
+	[ -n "$(PROJECT)" ] && ARGS="$$ARGS --project $(PROJECT)"; \
+	[ -n "$(VERSION)" ] && ARGS="$$ARGS --version $(VERSION)"; \
+	[ -n "$(PHASE)" ] && ARGS="$$ARGS --phase $(PHASE)"; \
+	[ -n "$(DRY_RUN)" ] && [ "$(DRY_RUN)" = "1" ] && ARGS="$$ARGS --dry-run"; \
+	[ -n "$(VERBOSE)" ] && [ "$(VERBOSE)" = "1" ] && ARGS="$$ARGS --verbose"; \
+	[ -n "$(YES)" ] && [ "$(YES)" = "1" ] && ARGS="$$ARGS --yes"; \
+	eval "./scripts/release-rollback.sh $$ARGS"
 
 # ==============================================================================
 # MARKDOWN LINTING

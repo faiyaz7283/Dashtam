@@ -78,7 +78,7 @@ Dashtam uses a **meta repository** with **Git submodules** for multi-project coo
 
 ### Local Structure
 
-```
+```text
 ~/dashtam/                    # Meta repo (dashtam)
 ├── .git/
 ├── .gitmodules               # Submodule references
@@ -312,7 +312,7 @@ chore(deps): update httpx to latest stable
 
 **Co-author** (required for AI-assisted commits):
 
-```
+```text
 Co-Authored-By: Warp <agent@warp.dev>
 ```
 
@@ -329,24 +329,47 @@ Both `main` and `development` are protected:
 
 ### Release Workflow
 
-**Release Process**:
+**Automated Process (Preferred)**:
 
-1. Verify all milestone issues are closed (or moved to next milestone)
-2. Create release PR from `development` → `main`
-3. After merge, tag release: `git tag -a vX.Y.Z -m "message"` and push tag
-4. Create GitHub Release: `gh release create vX.Y.Z --title "..." --notes "..."`
-5. Sync main back to development:
+Use the release automation script from meta repo:
 
 ```bash
-git checkout development
-git pull origin development
-git merge origin/main --no-edit
-git push origin development
+cd ~/dashtam
+make release PROJECT=api VERSION=1.9.4
+
+# With milestone validation
+make release PROJECT=api VERSION=1.9.4 MILESTONE="v1.9.4"
+
+# Preview (dry-run)
+make release PROJECT=api VERSION=1.9.4 DRY_RUN=1
 ```
 
-1. Close the milestone on GitHub (if all issues complete)
+**What it does:**
 
-See project-specific WARP.md for detailed release checklists.
+- Phase 1: Version bump, CHANGELOG generation, PR to development
+- Phase 2: Auto-creates PR from development → main (GitHub Actions)
+- Phase 3: Auto-tags, creates GitHub Release, syncs branches (GitHub Actions)
+
+**See**: `~/dashtam/docs/guides/release-automation.md` for full documentation.
+
+**Rollback (If Needed)**:
+
+```bash
+cd ~/dashtam
+make rollback PROJECT=api VERSION=1.9.4 DRY_RUN=1  # Preview first
+make rollback PROJECT=api VERSION=1.9.4            # Execute
+```
+
+**See**: `~/dashtam/docs/guides/release-automation.md` (Rollback section)
+
+**Manual Process (Optional Fallback)**:
+
+1. Verify all milestone issues are closed
+2. Update `pyproject.toml` version, run `uv lock`, update CHANGELOG.md
+3. Create release PR from `development` → `main`
+4. After merge, tag release and create GitHub Release
+5. Sync main back to development
+6. Close milestone
 
 ---
 
@@ -409,7 +432,7 @@ def fetch_accounts(user_id: UUID) -> Result[list[Account], FetchError]:
 
 **Test Types**:
 
-```
+```text
 tests/
 ├── unit/           # Pure logic tests (mocked dependencies)
 ├── integration/    # Database, cache, external API tests
@@ -525,7 +548,7 @@ Each project's WARP.md contains:
 
 ### Issue Lifecycle
 
-```
+```text
 OPEN → Assigned → In Progress → PR Linked → CLOSED
 ```
 
@@ -644,7 +667,7 @@ Templates are stored in `.github/ISSUE_TEMPLATE/`:
 
 **Typical Flow**:
 
-```
+```text
 Backlog → Todo → In Progress → Review → Done
 (someday)  (ready)  (doing)     (checking)  (shipped)
 ```
