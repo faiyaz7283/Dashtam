@@ -824,12 +824,12 @@ generate_changelog() {
     fi
     
     # Real run: Insert entry after header (line 4)
-    if [[ "$(uname)" == "Darwin" ]]; then
-        sed -i '' "4a\\
-$entry" "$changelog"
-    else
-        sed -i "4a\\$entry" "$changelog"
-    fi
+    # Use temp file approach to avoid sed multiline issues
+    {
+        head -n 3 "$changelog"
+        echo -e "$entry"
+        tail -n +4 "$changelog"
+    } > "$changelog.tmp" && mv "$changelog.tmp" "$changelog"
     
     # Validate markdown linting
     log_info "Validating CHANGELOG.md markdown..."
