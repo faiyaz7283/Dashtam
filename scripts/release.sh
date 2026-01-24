@@ -31,6 +31,9 @@
 #   --project, -p       Project name (api, terminal, jobs)
 #   --version, -v       Version to release (X.Y.Z format)
 #   --milestone, -m     Milestone to validate (optional)
+#   --changelog, -c     Custom CHANGELOG content (inline, heredoc supported)
+#   --changelog-file    Path to file containing CHANGELOG content
+#   --changelog-editor  Open $EDITOR to write CHANGELOG content
 #   --dry-run           Preview changes without executing
 #   --verbose           Show detailed output (CHANGELOG content, commands)
 #   --yes               Skip all confirmation prompts
@@ -40,6 +43,8 @@
 #   PROJECT             Project name (overridden by --project)
 #   VERSION             Version to release (overridden by --version)
 #   MILESTONE           Milestone to validate (overridden by --milestone)
+#   CHANGELOG           Custom CHANGELOG content (overridden by --changelog)
+#   CHANGELOG_FILE      Path to CHANGELOG content file (overridden by --changelog-file)
 #   DRY_RUN=1           Enable dry-run mode
 #   VERBOSE=1           Enable verbose output
 #   YES=1               Skip confirmation prompts
@@ -115,6 +120,9 @@ declare -A PROJECT_MAIN_CONTAINER=(
 ARG_PROJECT=""
 ARG_VERSION=""
 ARG_MILESTONE=""
+ARG_CHANGELOG=""
+ARG_CHANGELOG_FILE=""
+ARG_CHANGELOG_EDITOR=0
 ARG_DRY_RUN="${DRY_RUN:-0}"
 ARG_VERBOSE="${VERBOSE:-0}"
 ARG_YES="${YES:-0}"
@@ -148,14 +156,39 @@ Options:
   -p, --project PROJECT   Project name (api, terminal, jobs)
   -v, --version VERSION   Version to release (X.Y.Z format)
   -m, --milestone NAME    Milestone to validate (optional)
+  -c, --changelog TEXT    Custom CHANGELOG content (supports heredoc/multiline)
+  --changelog-file FILE   Read CHANGELOG content from file
+  --changelog-editor      Open \$EDITOR to write CHANGELOG content
   --dry-run               Preview changes without executing
   --verbose               Show detailed output (CHANGELOG, commands)
   --yes                   Skip all confirmation prompts
   -h, --help              Show this help message
 
+Changelog Options:
+  By default, CHANGELOG is auto-generated using a hybrid approach:
+  - Issues from milestone grouped by label (Added, Fixed, etc.)
+  - Related commits listed under each issue
+
+  To provide custom content:
+    # Inline (heredoc style)
+    $(basename "$0") -p api -v 1.2.0 --changelog "\$(cat <<'EOF'
+    ### Added
+    - Feature X (#123)
+    EOF
+    )"
+
+    # From file
+    $(basename "$0") -p api -v 1.2.0 --changelog-file release-notes.md
+
+    # Editor (opens \$EDITOR)
+    $(basename "$0") -p api -v 1.2.0 --changelog-editor
+
 Examples:
-  # Release API v1.2.0
+  # Release API v1.2.0 (auto-generate CHANGELOG)
   $(basename "$0") --project api --version 1.2.0
+
+  # Release with custom CHANGELOG from file
+  $(basename "$0") --project api --version 1.2.0 --changelog-file notes.md
 
   # Interactive release (prompts for version)
   $(basename "$0") --project terminal
@@ -164,12 +197,14 @@ Examples:
   $(basename "$0") --project jobs --version 0.2.0 --dry-run
 
 Environment Variables:
-  PROJECT        Project name (overridden by --project)
-  VERSION        Version to release (overridden by --version)
-  MILESTONE      Milestone to validate (overridden by --milestone)
-  DRY_RUN=1      Enable dry-run mode
-  VERBOSE=1      Enable verbose output
-  YES=1          Skip confirmation prompts
+  PROJECT          Project name (overridden by --project)
+  VERSION          Version to release (overridden by --version)
+  MILESTONE        Milestone to validate (overridden by --milestone)
+  CHANGELOG        Custom CHANGELOG content (overridden by --changelog)
+  CHANGELOG_FILE   Path to CHANGELOG file (overridden by --changelog-file)
+  DRY_RUN=1        Enable dry-run mode
+  VERBOSE=1        Enable verbose output
+  YES=1            Skip confirmation prompts
 
 EOF
 }
@@ -191,6 +226,18 @@ parse_args() {
             -m|--milestone)
                 ARG_MILESTONE="$2"
                 shift 2
+                ;;
+            -c|--changelog)
+                ARG_CHANGELOG="$2"
+                shift 2
+                ;;
+            --changelog-file)
+                ARG_CHANGELOG_FILE="$2"
+                shift 2
+                ;;
+            --changelog-editor)
+                ARG_CHANGELOG_EDITOR=1
+                shift
                 ;;
             --dry-run)
                 ARG_DRY_RUN=1
@@ -218,6 +265,23 @@ parse_args() {
     ARG_PROJECT="${ARG_PROJECT:-${PROJECT:-}}"
     ARG_VERSION="${ARG_VERSION:-${VERSION:-}}"
     ARG_MILESTONE="${ARG_MILESTONE:-${MILESTONE:-}}"
+    ARG_CHANGELOG="${ARG_CHANGELOG:-${CHANGELOG:-}}"
+    ARG_CHANGELOG_FILE="${ARG_CHANGELOG_FILE:-${CHANGELOG_FILE:-}}"
+    
+    # Validate changelog options are mutually exclusive
+    local changelog_opts=0
+    [[ -n "$ARG_CHANGELOG" ]] && (( changelog_opts += 1 ))
+    [[ -n "$ARG_CHANGELOG_FILE" ]] && (( changelog_opts += 1 ))
+    [[ "$ARG_CHANGELOG_EDITOR" == "1" ]] && (( changelog_opts += 1 ))
+    
+    if [[ $changelog_opts -gt 1 ]]; then
+        log_error "Only one changelog option allowed: --changelog, --changelog-file, or --changelog-editor"
+    fi
+    
+    # Validate changelog file exists if specified
+    if [[ -n "$ARG_CHANGELOG_FILE" && ! -f "$ARG_CHANGELOG_FILE" ]]; then
+        log_error "Changelog file not found: $ARG_CHANGELOG_FILE"
+    fi
     
     # Export for use in other functions
     export DRY_RUN="$ARG_DRY_RUN"
@@ -533,6 +597,106 @@ validate_commits_since_last_release() {
 }
 
 #
+# validate_branch_sync - Validate development can be merged to main
+#
+# Checks:
+#   1. Main branch exists and is fetchable
+#   2. Development is not behind main (would cause merge conflicts)
+#   3. Branches are mergeable (no divergent histories)
+#
+validate_branch_sync() {
+    log_info "${EMOJI_CHECK} Validating branch sync (development → main)..."
+    
+    cd "$PROJECT_PATH" || exit 1
+    
+    # Fetch both branches
+    git fetch origin main --quiet 2>/dev/null || true
+    git fetch origin development --quiet 2>/dev/null || true
+    
+    # Check if main branch exists
+    if ! git rev-parse --verify origin/main &>/dev/null; then
+        log_warning "Main branch does not exist on remote (first release?)"
+        return 0
+    fi
+    
+    # Check if development is behind main
+    local behind_main
+    behind_main=$(git rev-list --count origin/development..origin/main 2>/dev/null || echo "0")
+    
+    if [[ "$behind_main" -gt 0 ]]; then
+        log_error "Development is behind main by $behind_main commit(s)\n\nThis can happen if:\n  1. A hotfix was applied directly to main\n  2. A previous release sync failed\n\nTo fix:\n  git checkout development\n  git merge origin/main\n  git push origin development\n\nOr use the sync PR if one exists."
+    fi
+    
+    # Check for merge conflicts (dry-run merge)
+    local current_branch
+    current_branch=$(git branch --show-current)
+    
+    # Create temp branch to test merge
+    git checkout -b _release_test_merge origin/main --quiet 2>/dev/null || {
+        # Clean up if branch already exists
+        git branch -D _release_test_merge 2>/dev/null || true
+        git checkout -b _release_test_merge origin/main --quiet
+    }
+    
+    # Try to merge development
+    if ! git merge origin/development --no-commit --no-ff &>/dev/null; then
+        # Abort merge and clean up
+        git merge --abort 2>/dev/null || true
+        git checkout "$current_branch" --quiet
+        git branch -D _release_test_merge 2>/dev/null || true
+        
+        log_error "Merge conflict detected between development and main\n\nTo investigate:\n  git checkout main\n  git merge development --no-commit\n  git diff --name-only --diff-filter=U  # Show conflicting files\n  git merge --abort"
+    fi
+    
+    # Clean up
+    git merge --abort 2>/dev/null || true
+    git checkout "$current_branch" --quiet
+    git branch -D _release_test_merge 2>/dev/null || true
+    
+    log_success "Branches are in sync and mergeable"
+}
+
+#
+# ensure_release_label - Ensure automated-release label exists in repo
+#
+# Creates the label if it doesn't exist. This prevents PR creation from
+# failing when the label is missing.
+#
+ensure_release_label() {
+    log_info "${EMOJI_CHECK} Ensuring release label exists..."
+    
+    cd "$PROJECT_PATH" || exit 1
+    
+    local repo_name
+    repo_name=$(basename "$PROJECT_PATH")
+    local full_repo="faiyaz7283/dashtam-$repo_name"
+    
+    # Check if label exists
+    if gh label list --repo "$full_repo" --json name --jq '.[].name' 2>/dev/null | grep -q "^${RELEASE_LABEL}$"; then
+        log_success "Label exists: $RELEASE_LABEL"
+        return 0
+    fi
+    
+    # Label doesn't exist, create it
+    log_info "Creating label: $RELEASE_LABEL"
+    
+    if [[ "$ARG_DRY_RUN" == "1" ]]; then
+        log_info "[DRY RUN] Would create label: $RELEASE_LABEL"
+        return 0
+    fi
+    
+    if gh label create "$RELEASE_LABEL" \
+        --repo "$full_repo" \
+        --description "Automated release PR - triggers Phase 2/3 workflows" \
+        --color "0E8A16" 2>/dev/null; then
+        log_success "Created label: $RELEASE_LABEL"
+    else
+        log_warning "Failed to create label (may already exist or require permissions)"
+        log_info "  You may need to create it manually in GitHub"
+    fi
+}
+
+#
 # validate_dev_container - Ensure dev container is running
 #
 validate_dev_container() {
@@ -738,134 +902,45 @@ The script will revert all changes automatically."
 }
 
 #
-# generate_changelog - Generate CHANGELOG entry from milestone issues
+# generate_changelog - Generate CHANGELOG entry using standalone changelog.sh script
+#
+# Delegates to scripts/changelog.sh for content generation and insertion.
+# This function handles dry-run preview and markdown validation.
 #
 generate_changelog() {
     log_info "📋 Generating CHANGELOG entry..."
     
-    cd "$PROJECT_PATH" || exit 1
+    # Build changelog.sh command
+    local changelog_cmd=("${SCRIPT_DIR}/changelog.sh")
+    changelog_cmd+=("--project" "$PROJECT_NAME")
+    changelog_cmd+=("--version" "$NEW_VERSION")
     
-    local changelog="CHANGELOG.md"
-    local repo_name
-    repo_name=$(basename "$PROJECT_PATH")
+    # Pass through optional arguments
+    [[ -n "$ARG_MILESTONE" ]] && changelog_cmd+=("--milestone" "$ARG_MILESTONE")
+    [[ -n "$ARG_CHANGELOG" ]] && changelog_cmd+=("--changelog" "$ARG_CHANGELOG")
+    [[ -n "$ARG_CHANGELOG_FILE" ]] && changelog_cmd+=("--changelog-file" "$ARG_CHANGELOG_FILE")
+    [[ "$ARG_CHANGELOG_EDITOR" == "1" ]] && changelog_cmd+=("--changelog-editor")
+    [[ "$ARG_VERBOSE" == "1" ]] && changelog_cmd+=("--verbose")
     
-    # Create CHANGELOG if it doesn't exist
-    if [[ ! -f "$changelog" ]]; then
-        echo "# Changelog" > "$changelog"
-        echo "" >> "$changelog"
-        echo "All notable changes to this project will be documented in this file." >> "$changelog"
-        echo "" >> "$changelog"
-    fi
-    
-    # Generate entry header
-    local entry_date
-    entry_date=$(date '+%Y-%m-%d')
-    
-    # Fetch issues from milestone (if specified) or recent closed issues
-    local issues_json
-    if [[ -n "$ARG_MILESTONE" ]]; then
-        issues_json=$(gh issue list \
-            --repo "faiyaz7283/dashtam-$repo_name" \
-            --milestone "$ARG_MILESTONE" \
-            --state closed \
-            --limit 100 \
-            --json number,title,labels \
-            --jq '.[] | {number, title, type: .labels[].name}')
-    else
-        # Get issues closed in last 30 days
-        issues_json=$(gh issue list \
-            --repo "faiyaz7283/dashtam-$repo_name" \
-            --state closed \
-            --limit 50 \
-            --json number,title,labels,closedAt \
-            --jq '.[] | select(.closedAt >= (now - 2592000)) | {number, title, type: .labels[].name}')
-    fi
-    
-    # Group issues by type
-    local features=$(echo "$issues_json" | jq -r 'select(.type == "enhancement") | "- \(.title) (#\(.number))"' | sort)
-    local fixes=$(echo "$issues_json" | jq -r 'select(.type == "bug") | "- \(.title) (#\(.number))"' | sort)
-    local docs=$(echo "$issues_json" | jq -r 'select(.type == "documentation") | "- \(.title) (#\(.number))"' | sort)
-    
-    # Build CHANGELOG entry with EXACT blank line control for MD012/MD022/MD032 compliance
-    # 
-    # Target format (exactly 1 blank line between sections):
-    #   ## [X.Y.Z] - YYYY-MM-DD
-    #   <blank>
-    #   ### Features
-    #   <blank>
-    #   - item 1
-    #   - item 2
-    #   <blank>
-    #   ### Bug Fixes
-    #   ...
-    #
-    local entry=""
-    
-    # Version header
-    entry="## [${NEW_VERSION}] - ${entry_date}"
-    
-    if [[ -n "$features" ]]; then
-        # blank + ### + blank + items
-        entry+=$'\n\n### Features\n\n'
-        entry+="$features"
-    fi
-    
-    if [[ -n "$fixes" ]]; then
-        # blank + ### + blank + items
-        entry+=$'\n\n### Bug Fixes\n\n'
-        entry+="$fixes"
-    fi
-    
-    if [[ -n "$docs" ]]; then
-        # blank + ### + blank + items
-        entry+=$'\n\n### Documentation\n\n'
-        entry+="$docs"
-    fi
-    
-    # If no issues found, add placeholder
-    if [[ -z "$features" && -z "$fixes" && -z "$docs" ]]; then
-        entry+=$'\n\n- Version bump'
-    fi
-    
-    # Display in verbose mode or dry-run
-    if [[ "$ARG_VERBOSE" == "1" || "$ARG_DRY_RUN" == "1" ]]; then
-        echo ""
-        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
-        echo -e "${COLOR_BOLD}Generated CHANGELOG Entry:${COLOR_RESET}"
-        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
-        printf '%s' "$entry"
-        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
-        echo ""
-    fi
-    
-    # Dry-run: skip file write
+    # Dry-run: preview only (pass --dry-run to changelog.sh)
     if [[ "$ARG_DRY_RUN" == "1" ]]; then
+        changelog_cmd+=("--dry-run")
+        echo ""
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo -e "${COLOR_BOLD}CHANGELOG Entry Preview:${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        "${changelog_cmd[@]}"
+        echo -e "${COLOR_CYAN}────────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo ""
         log_success "CHANGELOG content generated (not written)"
         return 0
     fi
     
-    # Real run: Insert entry after header (line 4)
-    # Use temp file approach to avoid sed multiline issues
-    # printf preserves literal newlines in $entry
-    #
-    # Target structure:
-    #   Line 1: # Changelog
-    #   Line 2: <blank>
-    #   Line 3: All notable changes...
-    #   Line 4: <blank> (from echo "")
-    #   Line 5+: $entry (## [X.Y.Z] ...)
-    #   After entry: <blank> (single)
-    #   Rest: existing content starting with ## [prev]
-    #
-    {
-        head -n 3 "$changelog"
-        echo ""  # Single blank line after header
-        printf '%s\n' "$entry"  # Entry content with trailing newline
-        # tail -n +4 includes the existing blank line before ## [prev]
-        tail -n +4 "$changelog"
-    } > "$changelog.tmp" && mv "$changelog.tmp" "$changelog"
+    # Real run: write to CHANGELOG.md (default behavior, no flag needed)
+    "${changelog_cmd[@]}"
     
     # Validate markdown linting (BLOCK on violations)
+    # This is done here (not in changelog.sh) so release.sh controls rollback
     log_info "Validating CHANGELOG.md markdown..."
     if ! docker run --rm -v "$PROJECT_PATH:/workspace:ro" -w /workspace \
         node:24-alpine npx markdownlint-cli2 "CHANGELOG.md" 2>&1 | tee /tmp/changelog-lint.log; then
@@ -1085,22 +1160,28 @@ main() {
     # Step 3: Validate git state
     validate_git_state
     
-    # Step 4: Get current version
+    # Step 4: Validate branch sync (development can merge to main)
+    validate_branch_sync
+    
+    # Step 5: Ensure release label exists
+    ensure_release_label
+    
+    # Step 6: Get current version
     get_current_version
     
-    # Step 5: Determine new version
+    # Step 7: Determine new version
     determine_new_version
     
-    # Step 6: Validate version
+    # Step 8: Validate version
     validate_version
     
-    # Step 7: Validate commits since last release
+    # Step 9: Validate commits since last release
     validate_commits_since_last_release
     
-    # Step 8: Validate milestone (if specified)
+    # Step 10: Validate milestone (if specified)
     validate_milestone
     
-    # Step 9: Validate dev container
+    # Step 11: Validate dev container
     validate_dev_container
     
     echo ""
@@ -1134,25 +1215,25 @@ main() {
     log_info "═══════════════════════════════════════════════════════════════"
     echo ""
     
-    # Step 10: Update version
+    # Step 12: Update version
     update_version
     
-    # Step 11: Run uv lock
+    # Step 13: Run uv lock
     run_uv_lock
     
-    # Step 12: Generate CHANGELOG
+    # Step 14: Generate CHANGELOG
     generate_changelog
     
-    # Step 13: Create release branch
+    # Step 15: Create release branch
     create_release_branch
     
-    # Step 14: Commit changes
+    # Step 16: Commit changes
     commit_changes
     
-    # Step 15: Push branch
+    # Step 17: Push branch
     push_branch
     
-    # Step 16: Create PR
+    # Step 18: Create PR
     create_pr
     
     echo ""

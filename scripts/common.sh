@@ -552,7 +552,7 @@ cleanup_on_error() {
                     if [[ -f "$file" ]] && ! git diff --quiet "$file" 2>/dev/null; then
                         echo "  → git checkout -- $file"
                         git checkout -- "$file" 2>/dev/null || true
-                        ((reverted_count++))
+                        (( reverted_count += 1 ))
                     fi
                 done
                 
