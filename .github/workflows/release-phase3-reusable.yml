@@ -228,7 +228,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_LABEL="${{ inputs.release_label || 'automated-release' }}"
+          RELEASE_LABEL="automated-release"
           
           # Find and remove label from recent closed PRs with the label
           LABELED_PRS=$(gh pr list \

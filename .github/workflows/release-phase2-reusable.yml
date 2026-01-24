@@ -46,7 +46,7 @@ jobs:
     # 2. PR has the release label
     if: |
       github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, inputs.release_label || 'automated-release')
+      contains(github.event.pull_request.labels.*.name, 'automated-release')
     
     runs-on: ubuntu-latest
     
@@ -121,7 +121,7 @@ jobs:
           2. ⏳ Review and merge this PR to \`main\`
           3. ⏳ Phase 3 will auto-tag release and sync branches
           
-          **Note**: This PR is labeled with \`${{ inputs.release_label || 'automated-release' }}\` for automation.
+          **Note**: This PR is labeled with \`automated-release\` for automation.
           EOF
           )
           
@@ -132,7 +132,7 @@ jobs:
             --head development \
             --title "chore(release): v$VERSION" \
             --body "$PR_BODY" \
-            --label "${{ inputs.release_label || 'automated-release' }}")
+            --label "automated-release")
           
           echo "✅ Created PR from development → main for v$VERSION"
           echo "PR URL: $PR_URL"
