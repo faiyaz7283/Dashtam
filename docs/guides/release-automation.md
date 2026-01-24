@@ -135,6 +135,9 @@ make release PROJECT=api VERSION=1.9.4 YES=1
 
 # Combine flags
 make release PROJECT=api VERSION=1.9.4 DRY_RUN=1 VERBOSE=1
+
+# After release completes - sync local branches
+make release-sync PROJECT=api
 ```
 
 ### Direct Script Usage
@@ -506,13 +509,23 @@ on:
 ### After Release
 
 1. **Verify tag**: Check GitHub releases page
-2. **Pull changes**: Update local branches
+2. **Sync local branches**: Run the sync command to update local state
 
    ```bash
-   git checkout development && git pull
-   git checkout main && git pull
-   git fetch --tags
+   # From meta repo
+   make release-sync PROJECT=api
+
+   # Or auto-detect from project directory
+   cd ~/dashtam/api
+   make -C ~/dashtam release-sync
    ```
+
+   This command:
+   - Fetches all remotes and prunes stale branches
+   - Compares remote vs local state
+   - Updates local `development` branch
+   - Deletes merged `release/v*` branches
+   - Shows current state summary
 
 3. **Close milestone**: Close milestone on GitHub
 4. **Announce**: Notify team of release
@@ -705,7 +718,9 @@ For tagged releases (Phase 4), create a forward fix instead.
 ## Related Documentation
 
 - `~/dashtam/scripts/release.sh` - Release script source
+- `~/dashtam/scripts/changelog.sh` - Standalone CHANGELOG generator
 - `~/dashtam/scripts/release-rollback.sh` - Rollback script
+- `~/dashtam/Makefile` - `release`, `release-sync`, `rollback` targets
 - `~/dashtam/WARP.md` - Git workflow and release process
 - `.github/workflows/release-phase2.yml` - Phase 2 automation
 - `.github/workflows/release-phase3.yml` - Phase 3 automation

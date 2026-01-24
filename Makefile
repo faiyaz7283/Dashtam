@@ -1,10 +1,11 @@
-.PHONY: help create-issue release rollback lint-md lint-md-check lint-md-fix md-check
+.PHONY: help create-issue release release-sync rollback lint-md lint-md-check lint-md-fix md-check
 
 help:
 	@echo "Dashtam Meta Repo - Available Commands"
 	@echo ""
 	@echo "  make create-issue     Create GitHub issue and add to project"
 	@echo "  make release          Prepare release (version bump, CHANGELOG, PR)"
+	@echo "  make release-sync     Sync local branches after release completes"
 	@echo "  make rollback         Rollback a release (by phase)"
 	@echo ""
 	@echo "Usage examples:"
@@ -23,6 +24,8 @@ help:
 	@echo "  make rollback PROJECT=api VERSION=1.9.3   # Explicit project"
 	@echo "  make rollback VERSION=1.9.3 PHASE=2       # Force specific phase"
 	@echo "  make rollback VERSION=1.9.3 DRY_RUN=1     # Preview only"
+	@echo ""
+	@echo "  make release-sync PROJECT=api    # Sync local after release completes"
 	@echo ""
 	@echo "  make lint-md FILE=docs/guides/file.md  # Lint markdown file"
 	@echo ""
@@ -82,6 +85,71 @@ rollback:
 	[ -n "$(VERBOSE)" ] && [ "$(VERBOSE)" = "1" ] && ARGS="$$ARGS --verbose"; \
 	[ -n "$(YES)" ] && [ "$(YES)" = "1" ] && ARGS="$$ARGS --yes"; \
 	eval "./scripts/release-rollback.sh $$ARGS"
+
+# Sync local branches after release completes on GitHub
+# Auto-detects latest release and syncs only if needed
+# Usage: make release-sync PROJECT=api
+release-sync:
+	@# Detect project from argument or current directory
+	@PROJECT="$(PROJECT)"; \
+	if [ -z "$$PROJECT" ]; then \
+		PWD_BASE=$$(basename "$$PWD"); \
+		if [ "$$PWD_BASE" = "api" ] || [ "$$PWD_BASE" = "terminal" ] || [ "$$PWD_BASE" = "jobs" ]; then \
+			PROJECT="$$PWD_BASE"; \
+		else \
+			echo "Error: Could not detect project. Use PROJECT=api|terminal|jobs"; \
+			exit 1; \
+		fi; \
+	fi; \
+	PROJECT_PATH="$(PWD)/$$PROJECT"; \
+	if [ ! -d "$$PROJECT_PATH" ]; then \
+		PROJECT_PATH="$$PWD"; \
+	fi; \
+	echo ""; \
+	echo "═══════════════════════════════════════════════════════════════"; \
+	echo "  🔄 Post-Release Local Sync"; \
+	echo "═══════════════════════════════════════════════════════════════"; \
+	echo ""; \
+	echo "Project: $$PROJECT"; \
+	echo "Path:    $$PROJECT_PATH"; \
+	echo ""; \
+	cd "$$PROJECT_PATH" && \
+	echo "📥 Fetching all remotes..." && \
+	git fetch --all --prune && \
+	echo "" && \
+	REMOTE_TAG=$$(git describe --tags --abbrev=0 origin/main 2>/dev/null) && \
+	LOCAL_TAG=$$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "none") && \
+	LOCAL_DEV_COMMIT=$$(git rev-parse development 2>/dev/null) && \
+	REMOTE_DEV_COMMIT=$$(git rev-parse origin/development 2>/dev/null) && \
+	echo "Remote latest tag:  $$REMOTE_TAG" && \
+	echo "Local latest tag:   $$LOCAL_TAG" && \
+	echo "" && \
+	if [ "$$LOCAL_DEV_COMMIT" = "$$REMOTE_DEV_COMMIT" ] && [ "$$LOCAL_TAG" = "$$REMOTE_TAG" ]; then \
+		echo "✅ Already in sync! No action needed."; \
+		echo ""; \
+		echo "Current state:"; \
+		echo "  Branch: $$(git branch --show-current)"; \
+		echo "  Commit: $$(git log -1 --oneline)"; \
+		echo "  Tag:    $$LOCAL_TAG"; \
+		exit 0; \
+	fi && \
+	echo "🌿 Syncing local branches..." && \
+	git checkout development && \
+	git pull origin development && \
+	echo "" && \
+	for branch in $$(git branch --list 'release/v*' | tr -d ' '); do \
+		if git branch -r --merged development | grep -q "origin/$$branch"; then \
+			echo "🗑️  Deleting merged release branch: $$branch"; \
+			git branch -D "$$branch" 2>/dev/null || true; \
+		fi; \
+	done && \
+	echo "" && \
+	echo "✅ Local sync complete!" && \
+	echo "" && \
+	echo "Current state:" && \
+	echo "  Branch: $$(git branch --show-current)" && \
+	echo "  Commit: $$(git log -1 --oneline)" && \
+	echo "  Tag:    $$(git describe --tags --abbrev=0 2>/dev/null || echo 'none')"
 
 # ==============================================================================
 # MARKDOWN LINTING

@@ -349,6 +349,13 @@ make release PROJECT=api VERSION=1.9.4 DRY_RUN=1
 - Phase 1: Version bump, CHANGELOG generation, PR to development
 - Phase 2: Auto-creates PR from development → main (GitHub Actions)
 - Phase 3: Auto-tags, creates GitHub Release, syncs branches (GitHub Actions)
+- Phase 4: Sync local branches (manual, after release completes)
+
+**After release completes** (GitHub Release created):
+
+```bash
+make release-sync PROJECT=api
+```
 
 **See**: `~/dashtam/docs/guides/release-automation.md` for full documentation.
 
