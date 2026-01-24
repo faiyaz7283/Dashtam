@@ -101,7 +101,7 @@ release-sync:
 			exit 1; \
 		fi; \
 	fi; \
-	PROJECT_PATH="$(PWD)/$$PROJECT"; \
+	PROJECT_PATH="$(CURDIR)/$$PROJECT"; \
 	if [ ! -d "$$PROJECT_PATH" ]; then \
 		PROJECT_PATH="$$PWD"; \
 	fi; \
