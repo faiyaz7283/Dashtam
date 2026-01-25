@@ -2,15 +2,14 @@
 
 ## Overview
 
-Dashtam uses a fully automated 3-phase release process that handles
-version bumps, CHANGELOG generation, PR creation, tagging, and branch
-syncing.
+Dashtam uses a 3-phase release process that automates version bumps,
+CHANGELOG generation, PR creation, tagging, and branch syncing.
 
 **What's automated:**
 
 - Version bump in `pyproject.toml`
 - Dependency lockfile update (`uv lock`)
-- CHANGELOG generation from milestone issues
+- CHANGELOG generation (auto or custom)
 - Release branch creation and PR to development
 - PR from development → main
 - Git tag creation and GitHub Release
@@ -21,6 +20,7 @@ syncing.
 - Running the release script (Phase 1)
 - Merging Phase 1 PR to development (CI must pass)
 - Merging Phase 2 PR to main (triggers Phase 3)
+- Running local sync after release (`make release-sync`)
 
 ---
 
@@ -56,22 +56,28 @@ make release PROJECT=api  # Prompts for version bump type
 
 **Script does:**
 
-1. Validates git state (clean, on development, up-to-date)
-2. Validates version format and increment
-3. Validates commits since last release
-4. Creates release branch (`release/vX.Y.Z`)
-5. Updates `pyproject.toml` version
-6. Runs `uv lock` in dev container
-7. Generates CHANGELOG from milestone issues
-8. Commits and pushes changes
-9. Creates PR to `development` with `automated-release` label
-10. Exits
+1. Pre-flight validation:
+   - Prerequisites (git, gh, docker, jq)
+   - Git state (clean, on development, up-to-date)
+   - Branch sync (development mergeable to main)
+   - Release label exists (creates if missing)
+2. Version validation (format, increment, no duplicate tag)
+3. Commits validation (at least 1 since last release)
+4. Milestone validation (if specified)
+5. Dev container validation (starts if needed)
+6. Updates `pyproject.toml` version
+7. Runs `uv lock` in dev container
+8. Generates CHANGELOG entry
+9. Creates release branch (`release/vX.Y.Z`)
+10. Commits and pushes changes
+11. Creates PR to `development` with `automated-release` label
+12. Enables auto-merge on PR
 
-**You do:** Merge the PR to `development` (after CI passes)
+**You do:** Wait for CI to pass → PR auto-merges to development
 
 ---
 
-### Phase 2: Auto-Create PR to Main (Automated)
+### Phase 2: Create PR to Main (Automated)
 
 **Trigger:** PR merge to `development` with `automated-release` label
 
@@ -79,7 +85,7 @@ make release PROJECT=api  # Prompts for version bump type
 
 1. Extracts version from branch name
 2. Extracts CHANGELOG entry
-3. Creates PR from `development` → `main`
+3. Creates PR from `development` → `main` (NO auto-merge)
 4. Adds `automated-release` label
 5. Deletes release branch
 
@@ -93,8 +99,8 @@ make release PROJECT=api  # Prompts for version bump type
 
 **GitHub Actions does:**
 
-1. Detects release commit (version bump)
-2. Creates git tag (`vX.Y.Z`)
+1. Detects release commit (version bump pattern)
+2. Creates annotated git tag (`vX.Y.Z`)
 3. Creates GitHub Release with CHANGELOG
 4. Creates sync PR (main → development)
 5. Enables auto-merge on sync PR
@@ -160,12 +166,15 @@ cd ~/dashtam
 
 | Option | Makefile | Script | Description |
 | ------ | -------- | ------ | ----------- |
-| Project | `PROJECT=api` | `--project api` | Project name |
-| Version | `VERSION=1.9.4` | `--version 1.9.4` | Version |
-| Milestone | `MILESTONE="v1.9.4"` | `--milestone "v1.9.4"` | Validate |
-| Dry-run | `DRY_RUN=1` | `--dry-run` | Preview |
-| Verbose | `VERBOSE=1` | `--verbose` | Detailed output |
-| Skip prompts | `YES=1` | `--yes` | Skip prompts |
+| Project | `PROJECT=api` | `--project, -p` | Project name (api, terminal, jobs) |
+| Version | `VERSION=1.9.4` | `--version, -v` | Version to release (X.Y.Z) |
+| Milestone | `MILESTONE="v1.9.4"` | `--milestone, -m` | Validate milestone issues |
+| Changelog | `CHANGELOG="..."` | `--changelog, -c` | Custom CHANGELOG content |
+| Changelog file | `CHANGELOG_FILE=notes.md` | `--changelog-file` | Read CHANGELOG from file |
+| Changelog editor | - | `--changelog-editor` | Open \$EDITOR for CHANGELOG |
+| Dry-run | `DRY_RUN=1` | `--dry-run` | Preview changes only |
+| Verbose | `VERBOSE=1` | `--verbose` | Show detailed output |
+| Skip prompts | `YES=1` | `--yes` | Skip all confirmations |
 
 ### Flag Combinations
 
@@ -193,13 +202,13 @@ make release PROJECT=api
 
 # Prompts:
 # Current version: 1.9.3
-# 
+#
 # Version bump options:
 #   1) major  (2.0.0)
 #   2) minor  (1.10.0)
 #   3) patch  (1.9.4)
 #   4) custom (specify version)
-# 
+#
 # Select bump type [1-4]:
 ```
 
@@ -217,10 +226,10 @@ make release VERSION=1.9.4 DRY_RUN=1
 
 - Validation results
 - Version changes in `pyproject.toml`
-- `uv lock` command (or dry-run if supported)
+- `uv lock` command (with dry-run if supported)
 - Generated CHANGELOG entry
 - Git commands that would run
-- PR creation details
+- PR title and body preview
 
 **Does NOT:**
 
@@ -241,32 +250,39 @@ The script performs comprehensive validation before making changes:
 2. **Git state**:
    - Clean working directory (no uncommitted changes)
    - On `development` branch
-   - Up-to-date with remote
-3. **Version validation**:
+   - Up-to-date with remote (not ahead or behind)
+3. **Branch sync**:
+   - Development is not behind main
+   - No merge conflicts between development and main
+4. **Release label**: Creates `automated-release` label if missing
+5. **Version validation**:
    - Semantic version format (X.Y.Z)
    - New version > current version
-   - Valid increment (major, minor, or patch)
+   - Valid increment (major, minor, or patch only)
    - No duplicate tag exists
-4. **Commits validation**:
+6. **Commits validation**:
    - At least 1 commit since last release
    - Breakdown by type (feat, fix, docs, etc.)
-5. **Milestone validation** (if specified):
-   - No open issues in milestone
-6. **Dev container**: Running and accessible
+   - Warning if only docs/chore commits
+7. **Milestone validation** (if specified):
+   - Warns if open issues exist (allows continuation)
+8. **Dev container**: Running and accessible (auto-starts if needed)
 
 ### Post-change Validation
 
 1. **pyproject.toml**: Version updated correctly
-2. **uv.lock**: Lockfile updated and parsable
+2. **uv.lock**: Lockfile updated and parsable (`uv lock --check`)
 3. **CHANGELOG.md**: Valid markdown (no lint violations)
 
 ---
 
 ## CHANGELOG Generation
 
-The script automatically generates CHANGELOG entries from milestone issues.
+The script generates CHANGELOG entries with multiple options:
 
-### Source
+### Auto-Generation (Default)
+
+Uses a hybrid approach combining issues and commits:
 
 **With milestone:**
 
@@ -275,6 +291,8 @@ make release VERSION=1.9.4 MILESTONE="v1.9.4"
 ```
 
 - Fetches all closed issues in milestone "v1.9.4"
+- Groups by label (Added, Fixed, Changed, etc.)
+- Lists related commits under each issue
 
 **Without milestone:**
 
@@ -283,20 +301,49 @@ make release VERSION=1.9.4
 ```
 
 - Fetches issues closed in last 30 days
+- Same grouping and formatting
 
-### Format
+### Custom CHANGELOG Options
+
+**Inline content:**
+
+```bash
+./scripts/release.sh -p api -v 1.9.4 --changelog "\$(cat <<'EOF'
+### Added
+- New feature X (#123)
+
+### Fixed
+- Bug fix Y (#124)
+EOF
+)"
+```
+
+**From file:**
+
+```bash
+./scripts/release.sh -p api -v 1.9.4 --changelog-file release-notes.md
+```
+
+**Using editor:**
+
+```bash
+./scripts/release.sh -p api -v 1.9.4 --changelog-editor
+# Opens \$EDITOR to write content
+```
+
+### Output Format
 
 Issues are grouped by label type:
 
 ```markdown
-## [1.9.4] - 2026-01-22
+## [1.9.4] - 2026-01-25
 
-### Features
+### Added
 
 - feat(api): Account Endpoints - 4 Endpoints with Sync Support (#208)
-- feat(providers): Alpaca Provider - API Key Authentication (101 tests) (#221)
+- feat(providers): Alpaca Provider - API Key Authentication (#221)
 
-### Bug Fixes
+### Fixed
 
 - fix(cache): Handle cache miss gracefully (#210)
 
@@ -310,8 +357,8 @@ Issues are grouped by label type:
 CHANGELOG is validated with `markdownlint-cli2`:
 
 - Violations **block the release**
-- Automatically adds proper blank lines (MD022, MD032)
 - Script fails if linting errors persist
+- Fix with: `make lint-md FILE=CHANGELOG.md`
 
 ---
 
@@ -325,7 +372,7 @@ If any step fails after changes begin:
 
 1. Reverts changes to `pyproject.toml`, `uv.lock`, `CHANGELOG.md`
 2. Deletes release branch (if created)
-3. Exits with error message
+3. Exits with detailed error message
 
 ### Common Errors
 
@@ -336,16 +383,12 @@ If any step fails after changes begin:
    Run: git status
 ```
 
-**Fix**: Commit or stash your changes
-
 **Error**: Not on development branch
 
 ```text
 ❌ Must be on development branch (currently on main)
    Run: git checkout development
 ```
-
-**Fix**: Switch to development
 
 **Error**: Behind remote
 
@@ -354,7 +397,20 @@ If any step fails after changes begin:
    Run: git pull origin development
 ```
 
-**Fix**: Pull latest changes
+**Error**: Development behind main
+
+```text
+❌ Development is behind main by 3 commit(s)
+
+This can happen if:
+  1. A hotfix was applied directly to main
+  2. A previous release sync failed
+
+To fix:
+  git checkout development
+  git merge origin/main
+  git push origin development
+```
 
 **Error**: Invalid version
 
@@ -362,16 +418,12 @@ If any step fails after changes begin:
 ❌ New version (1.9.2) must be greater than current (1.9.3)
 ```
 
-**Fix**: Use correct version
-
 **Error**: Dev container not running
 
 ```text
 ❌ Dev container not running: dashtam-api-dev-app
    Try manually: cd ~/dashtam/api && make dev-up
 ```
-
-**Fix**: Start dev environment
 
 ---
 
@@ -405,11 +457,11 @@ cd ~/dashtam/api
 make lint-md FILE=CHANGELOG.md
 ```
 
-**Fix violations:**
+**Common violations:**
 
-- Add blank lines before/after headings
-- Add blank lines before/after lists
-- Add language identifiers to code blocks
+- MD022: Add blank line before/after headings
+- MD032: Add blank line before/after lists
+- MD031: Add blank line before/after code blocks
 
 ### Release branch already exists
 
@@ -429,19 +481,13 @@ Script warns but allows continuation:
 Continue anyway? (y/n):
 ```
 
-**Options:**
-
-1. Close or move issues, then retry
-2. Continue anyway (issues won't block)
-3. Cancel and fix milestone
-
 ---
 
 ## GitHub Actions Workflows
 
 ### Phase 2: release-phase2.yml
 
-**Location**: `.github/workflows/release-phase2.yml`
+**Location**: `.github/workflows/release-phase2.yml` (calls reusable)
 
 **Trigger**:
 
@@ -453,40 +499,40 @@ on:
       - development
 ```
 
-**Filter**: Only runs if PR has `automated-release` label
+**Filter**: Only runs if PR has `automated-release` label AND was merged
 
 **Actions**:
 
 1. Extracts version from branch name (`release/v1.9.4` → `1.9.4`)
 2. Extracts CHANGELOG entry
-3. Creates PR from `development` → `main`
-4. Enables auto-merge
+3. Creates PR from `development` → `main` (NO auto-merge)
+4. Adds `automated-release` label
 5. Deletes release branch
 
 ### Phase 3: release-phase3.yml
 
-**Location**: `.github/workflows/release-phase3.yml`
+**Location**: `.github/workflows/release-phase3.yml` (calls reusable)
 
 **Trigger**:
 
 ```yaml
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - main
 ```
 
-**Filter**: Only runs if PR has `automated-release` label
+**Note**: Uses `push` event because human-initiated merges DO trigger
+workflows (unlike GITHUB_TOKEN merges).
 
 **Actions**:
 
-1. Extracts version from PR title
-2. Creates and pushes git tag (`v1.9.4`)
-3. Creates GitHub Release with CHANGELOG
+1. Detects release commit (version bump in commit message or pyproject.toml)
+2. Creates and pushes annotated git tag (`v1.9.4`)
+3. Creates GitHub Release with CHANGELOG content
 4. Creates sync branch and PR (main → development)
 5. Enables auto-merge on sync PR
-6. Removes `automated-release` labels
+6. Removes `automated-release` labels from closed PRs
 
 ---
 
@@ -503,13 +549,13 @@ on:
 
 1. **Use dry-run first**: Preview changes with `DRY_RUN=1`
 2. **Review CHANGELOG**: Check generated CHANGELOG in PR
-3. **Wait for CI**: Let CI complete before merging
+3. **Wait for CI**: Let CI complete before moving to next phase
 4. **Monitor automation**: Watch Phase 2 & 3 workflows
 
 ### After Release
 
-1. **Verify tag**: Check GitHub releases page
-2. **Sync local branches**: Run the sync command to update local state
+1. **Verify release**: Check GitHub releases page
+2. **Sync local branches**:
 
    ```bash
    # From meta repo
@@ -532,28 +578,6 @@ on:
 
 ---
 
-## CI/CD Integration
-
-### GitHub Actions Status
-
-Check workflow runs:
-
-```bash
-gh run list --limit 5
-gh run view <run-id>
-gh run watch  # Watch latest run
-```
-
-### Auto-Merge Requirements
-
-For auto-merge to work:
-
-1. **Repository setting**: Auto-merge must be enabled
-2. **Branch protection**: CI checks must be configured
-3. **CI status**: All required checks must pass
-
----
-
 ## Examples
 
 ### Standard Release
@@ -561,8 +585,10 @@ For auto-merge to work:
 ```bash
 cd ~/dashtam/api
 make release VERSION=1.9.4
-# Review and merge PR
-# Watch automation complete
+# Wait for Phase 1 PR to auto-merge
+# Merge Phase 2 PR to main
+# Watch Phase 3 complete
+make release-sync
 ```
 
 ### Release with Milestone
@@ -570,6 +596,17 @@ make release VERSION=1.9.4
 ```bash
 make release VERSION=1.9.4 MILESTONE="v1.9.4"
 # Validates all milestone issues are closed
+```
+
+### Release with Custom CHANGELOG
+
+```bash
+# From file
+make release VERSION=1.9.4 CHANGELOG_FILE=release-notes.md
+
+# Inline
+./scripts/release.sh -p api -v 1.9.4 -c "### Added
+- Feature X (#123)"
 ```
 
 ### Test Release (Dry-Run)
@@ -584,18 +621,6 @@ make release VERSION=1.9.4 DRY_RUN=1 VERBOSE=1
 ```bash
 make release VERSION=1.9.4 YES=1
 # Skip all prompts for CI/CD pipelines
-```
-
-### Multi-Project Release
-
-```bash
-# Terminal project
-cd ~/dashtam/terminal
-make release VERSION=0.3.0
-
-# Jobs project
-cd ~/dashtam/jobs
-make release VERSION=0.2.1
 ```
 
 ---
@@ -617,6 +642,9 @@ cd ~/dashtam
 
 # Skip confirmations
 ./scripts/release-rollback.sh --project api --version 1.9.4 --yes
+
+# Preview (dry-run)
+./scripts/release-rollback.sh --project api --version 1.9.4 --dry-run
 ```
 
 ### Rollback by Phase
@@ -636,8 +664,7 @@ cd ~/dashtam
 #### Phase 3: Merged to Development (Moderate)
 
 - Merged to development, but not to main
-- **Actions**: Creates revert commit on development, closes main PR if
-  exists
+- **Actions**: Creates revert commit on development, closes main PR
 - **Impact**: Revert commit in git history
 
 #### Phase 4: Tagged and Released (Manual)
@@ -648,39 +675,6 @@ cd ~/dashtam
 
 **IMPORTANT**: Phase 4 does NOT delete tags/releases. This breaks history
 for users who pulled the tag. Create a fix release instead.
-
-### Manual Rollback Commands
-
-**Phase 1 (Manual):**
-
-```bash
-cd ~/dashtam/api
-git branch -D release/v1.9.4
-git push origin --delete release/v1.9.4
-```
-
-**Phase 2 (Manual):**
-
-```bash
-gh pr close <PR_NUMBER> --comment "Cancelling release" --delete-branch
-```
-
-**Phase 3 (Manual):**
-
-```bash
-cd ~/dashtam/api
-git checkout development
-git pull origin development
-git revert <RELEASE_COMMIT> --no-edit
-git push origin development
-```
-
-**Phase 4 (Manual - Forward Fix):**
-
-```bash
-# Create fix release
-make release VERSION=1.9.5
-```
 
 ---
 
@@ -693,20 +687,25 @@ the release branch.
 
 **Q: What if Phase 2 or Phase 3 fails?**
 
-A: Check GitHub Actions logs. The tag and release may be created,
-but sync might fail. Manual intervention may be needed.
+A: Check GitHub Actions logs. Manual intervention may be needed.
+The tag and release may be created but sync might fail.
+
+**Q: Why do I need to manually merge the PR to main?**
+
+A: Due to GitHub's security limitation, PRs merged with GITHUB_TOKEN
+don't trigger other workflows. Human-initiated merges DO trigger workflows.
 
 **Q: Can I release multiple versions at once?**
 
-A: No, only one release per project at a time. Complete one before starting another.
+A: No, only one release per project at a time. Complete one before starting.
 
 **Q: What if I need to fix the CHANGELOG?**
 
 A: Edit CHANGELOG.md in the release PR before merging.
 
-**Q: Can I skip CHANGELOG generation?**
+**Q: Can I provide custom CHANGELOG instead of auto-generation?**
 
-A: No, CHANGELOG is always generated. You can edit it in the PR.
+A: Yes. Use `--changelog`, `--changelog-file`, or `--changelog-editor`.
 
 **Q: How do I rollback a release?**
 
@@ -722,9 +721,9 @@ For tagged releases (Phase 4), create a forward fix instead.
 - `~/dashtam/scripts/release-rollback.sh` - Rollback script
 - `~/dashtam/Makefile` - `release`, `release-sync`, `rollback` targets
 - `~/dashtam/WARP.md` - Git workflow and release process
-- `.github/workflows/release-phase2.yml` - Phase 2 automation
-- `.github/workflows/release-phase3.yml` - Phase 3 automation
+- `.github/workflows/release-phase2-reusable.yml` - Phase 2 reusable workflow
+- `.github/workflows/release-phase3-reusable.yml` - Phase 3 reusable workflow
 
 ---
 
-**Created**: 2026-01-22 | **Last Updated**: 2026-01-22
+**Created**: 2026-01-22 | **Last Updated**: 2026-01-25
