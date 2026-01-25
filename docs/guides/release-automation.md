@@ -12,14 +12,15 @@ syncing.
 - Dependency lockfile update (`uv lock`)
 - CHANGELOG generation from milestone issues
 - Release branch creation and PR to development
-- PR from development → main (auto-merge)
+- PR from development → main
 - Git tag creation and GitHub Release
 - Branch sync (main → development)
 
 **What's manual:**
 
 - Running the release script (Phase 1)
-- Merging Phase 1 PR to development (final approval)
+- Merging Phase 1 PR to development (CI must pass)
+- Merging Phase 2 PR to main (triggers Phase 3)
 
 ---
 
@@ -80,20 +81,19 @@ make release PROJECT=api  # Prompts for version bump type
 2. Extracts CHANGELOG entry
 3. Creates PR from `development` → `main`
 4. Adds `automated-release` label
-5. Enables auto-merge
-6. Deletes release branch
+5. Deletes release branch
 
-**Result:** PR auto-merges when CI passes
+**You do:** Merge the PR to `main` (after CI passes) → triggers Phase 3
 
 ---
 
 ### Phase 3: Tag, Release, and Sync (Automated)
 
-**Trigger:** PR merge to `main` with `automated-release` label
+**Trigger:** Human merges PR to `main` (push event)
 
 **GitHub Actions does:**
 
-1. Extracts version from PR title
+1. Detects release commit (version bump)
 2. Creates git tag (`vX.Y.Z`)
 3. Creates GitHub Release with CHANGELOG
 4. Creates sync PR (main → development)

@@ -6,15 +6,20 @@
 #   Creates PR from development → main after a release PR is merged to development.
 #   This is Phase 2 of the 3-phase release automation.
 #
+# IMPORTANT: No Auto-Merge
+#   This workflow does NOT enable auto-merge on the PR to main.
+#   A human must manually merge the PR, which triggers Phase 3 via push event.
+#   This is required because GITHUB_TOKEN merges don't trigger other workflows.
+#
 # Trigger:
 #   Called by project repos (api, terminal, jobs) via workflow_call
 #
 # Flow:
 #   1. Triggered when PR with 'automated-release' label is merged to development
 #   2. Extracts version from release branch name (release/vX.Y.Z)
-#   3. Creates PR from development → main
-#   4. Enables auto-merge (merges when CI passes)
-#   5. Deletes the release branch (already merged)
+#   3. Creates PR from development → main (NO auto-merge)
+#   4. Deletes the release branch (already merged)
+#   5. Human merges PR to main → triggers Phase 3
 #
 # Usage in project repo:
 #   on:
@@ -116,16 +121,18 @@ jobs:
           
           **Previous PR**: $ORIGINAL_PR
           
+          **Action Required**: Merge this PR to trigger Phase 3 (tag, release, sync).
+          
           **Next Steps**:
           1. ✅ CI will run automatically
-          2. ⏳ Review and merge this PR to \`main\`
-          3. ⏳ Phase 3 will auto-tag release and sync branches
+          2. 👉 **Merge this PR manually** when CI passes
+          3. ⏳ Phase 3 will auto-trigger on merge (tag, release, sync)
           
-          **Note**: This PR is labeled with \`automated-release\` for automation.
+          **Note**: This PR is labeled with \`automated-release\` for tracking.
           EOF
           )
           
-          # Create PR
+          # Create PR (no auto-merge - human merge triggers Phase 3)
           PR_URL=$(gh pr create \
             --repo "${{ github.repository }}" \
             --base main \
@@ -136,15 +143,7 @@ jobs:
           
           echo "✅ Created PR from development → main for v$VERSION"
           echo "PR URL: $PR_URL"
-          
-          # Enable auto-merge (will merge when CI passes)
-          PR_NUMBER=$(basename "$PR_URL")
-          gh pr merge "$PR_NUMBER" \
-            --repo "${{ github.repository }}" \
-            --auto \
-            --merge
-          
-          echo "✅ Enabled auto-merge for PR #$PR_NUMBER"
+          echo "📋 Merge the PR manually to trigger Phase 3"
       
       - name: Delete release branch
         env:

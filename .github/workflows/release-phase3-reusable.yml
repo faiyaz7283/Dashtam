@@ -7,16 +7,17 @@
 #   and syncs main back to development.
 #   This is Phase 3 of the 3-phase release automation.
 #
-# IMPORTANT: Trigger Fix
-#   Uses `push` event on main branch instead of `pull_request: closed`.
-#   This is because PRs created/merged with GITHUB_TOKEN cannot trigger
-#   other workflows (GitHub security limitation). Push events bypass this.
+# IMPORTANT: Human Merge Required
+#   Phase 2 creates a PR to main WITHOUT auto-merge.
+#   A human must manually merge that PR, which triggers this workflow via push.
+#   Human-initiated merges DO trigger workflows (unlike GITHUB_TOKEN merges).
 #
 # Trigger:
 #   Called by project repos (api, terminal, jobs) via workflow_call
+#   Caller workflow uses: on: push: branches: [main]
 #
 # Flow:
-#   1. Triggered when commits are pushed to main
+#   1. Triggered when human merges PR to main (push event)
 #   2. Checks if this is a release commit (contains version bump)
 #   3. Extracts version from pyproject.toml
 #   4. Creates annotated git tag
